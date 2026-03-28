@@ -362,12 +362,23 @@ async function queueWA(phone, message, source = 'manual'){
 
       const res = await fetch(appSettings.whatsapp_endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        },
         body: JSON.stringify({ phone, message, source })
       });
 
       const text = await res.text();
-      if (!res.ok) throw new Error(text || 'فشل الإرسال عبر API');
+      console.log('send-wa response:', text);
+
+      let data = {};
+      try { data = JSON.parse(text); } catch (_) {}
+
+      if (!res.ok || data?.ok === false) {
+        throw new Error(data?.error || text || 'فشل الإرسال عبر API');
+      }
 
       toast('تم إرسال الرسالة عبر API ✓');
       return true;
