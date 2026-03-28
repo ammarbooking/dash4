@@ -628,7 +628,7 @@ async function renderTab(){
           <option value="api" ${appSettings.whatsapp_method === 'api' ? 'selected' : ''}>API / Edge Function</option>
         </select>
       </div>
-      <div class="field"><label>Endpoint</label><input id="wa-endpoint" value="${(appSettings.whatsapp_endpoint || '').replace(/"/g, '&quot;')}" placeholder="https://..."></div>
+      <div class="field"><label>Endpoint</label><input id="wa-endpoint" value="${(appSettings.whatsapp_endpoint || '').replace(/"/g, '&quot;')}" placeholder="https://zmkfwwqngpnmkxkluwat.supabase.co/functions/v1/sendwa"></div>
       <div class="field"><label>رقم تجربة</label><input id="wa-test-phone" placeholder="05XXXXXXXX"></div>
       <div style="display:flex;gap:8px"><button class="btn btn-gold" onclick="saveWASettings()">💾 حفظ</button><button class="btn btn-dark" onclick="testWA()">🧪 تجربة</button></div>
     </div>`;
