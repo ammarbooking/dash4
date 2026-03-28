@@ -238,7 +238,6 @@ function normalizePhone(phone){
   if (!phone) return '';
 
   let p = String(phone).trim();
-
   const arNums = '٠١٢٣٤٥٦٧٨٩';
   p = p.replace(/[٠-٩]/g, d => arNums.indexOf(d));
   p = p.replace(/\D/g, '');
@@ -300,7 +299,7 @@ function isBDMonth(c){
 async function saveNotif(type, to_user, message, count = 1){
   try {
     await db.from('loyalty_notifications').insert([{ type, to_user, message, count }]);
-  } catch (e) {
+  } catch(e) {
     console.error('saveNotif error', e);
   }
 }
@@ -336,6 +335,7 @@ async function queueWA(phone, message, source = 'manual'){
     const { error } = await db.from('outbox_messages').insert([payload]);
     if (error) throw error;
 
+    toast('تمت إضافة الرسالة للطابور ✓');
     return true;
   } catch (e) {
     console.error(e);
@@ -565,7 +565,7 @@ async function renderTab(){
       <div class="qs"><span class="qs-l">إجمالي الأختام</span><span class="qs-v">${totalStamps}</span></div>
       <div class="qs"><span class="qs-l">نسبة النشاط</span><span class="qs-v">${custs.length ? Math.round(activeCusts.length / custs.length * 100) : 0}%</span></div>
       <div class="qs"><span class="qs-l">أعياد الشهر</span><span class="qs-v">${bdMonth.length}</span></div>
-      <div class="qs"><span class="qs-l">رسائل بانتظار الإرسال</span><span class="qs-v">${outbox.pending}</span></div>
+      <div class="qs"><span class="qs-l">رسائل قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
     </div>`;
 
     tc.innerHTML = h;
@@ -732,7 +732,7 @@ async function renderTab(){
 
       <div class="sc">
         <h4 class="sec-t">💬 تكامل واتساب</h4>
-        <div class="qs"><span class="qs-l">طريقة الإرسال</span><span class="qs-v">من قاعدة البيانات</span></div>
+        <div class="qs"><span class="qs-l">طريقة الإرسال</span><span class="qs-v">عبر Supabase Queue</span></div>
         <div class="qs"><span class="qs-l">اسم الجدول</span><span class="qs-v">outbox_messages</span></div>
         <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
         <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
@@ -1078,7 +1078,6 @@ async function quickSend(){
     if (msgMethod === 'whatsapp') {
       const ok = await queueWA(phone, body, 'quickSend');
       if (!ok) return;
-
       await saveNotif('whatsapp', c.name, body, 1);
       toast('تمت إضافة الرسالة للطابور ✓');
     } else {
