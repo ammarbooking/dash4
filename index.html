@@ -66,6 +66,7 @@
     .chip{padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:11px;font-family:'Tajawal',sans-serif;cursor:pointer;white-space:nowrap}
     .chip.on{background:rgba(212,175,55,.2);border-color:rgba(212,175,55,.4);color:var(--gold)}
     .branch-chip{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:12px;font-family:'Tajawal',sans-serif;cursor:pointer}
+    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
 
     .qs{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
     .qs-l{font-size:13px;color:rgba(255,255,255,.5)}
@@ -181,6 +182,11 @@ let shopName = "متجر الولاء";
 let scanResult = null;
 let msgMethod = "whatsapp";
 let html5QrScanner = null;
+let appSettings = {
+  whatsapp_enabled: true,
+  whatsapp_method: 'queue',
+  whatsapp_endpoint: ''
+};
 
 function toast(msg, type='success'){
   const t = document.getElementById('toast');
@@ -304,42 +310,161 @@ async function saveNotif(type, to_user, message, count = 1){
   }
 }
 
+async function loadAppSettings(){
+  try {
+    const { data, error } = await db.from('app_settings').select('*').eq('id', 1).single();
+    if (error) return;
+    if (data) {
+      appSettings = {
+        whatsapp_enabled: data.whatsapp_enabled ?? true,
+        whatsapp_method: data.whatsapp_method || 'queue',
+        whatsapp_endpoint: data.whatsapp_endpoint || ''
+      };
+    }
+  } catch (e) {
+    console.error('loadAppSettings error', e);
+  }
+}
+
+async function saveWASettings(){
+  try {
+    const whatsapp_enabled = document.getElementById('wa-enabled').checked;
+    const whatsapp_method = document.getElementById('wa-method').value;
+    const whatsapp_endpoint = document.getElementById('wa-endpoint').value.trim();
+
+    const payload = {
+      id: 1,
+      whatsapp_enabled,
+      whatsapp_method,
+      whatsapp_endpoint,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await db.from('app_settings').upsert(payload);
+    if (error) throw error;
+
+    appSettings = payload;
+    toast('تم حفظ إعدادات واتساب ✓');
+    await renderTab();
+  } catch (e) {
+    console.error(e);
+    toast('فشل حفظ إعدادات واتساب', 'error');
+  }
+}
+
+async function testWA(){
+  const samplePhone = document.getElementById('wa-test-phone')?.value.trim();
+  if (!samplePhone) {
+    toast('اكتب رقم للتجربة', 'error');
+    return;
+  }
+  const ok = await queueWA(samplePhone, 'رسالة تجريبية من لوحة التحكم ✨', 'settings_test');
+  if (ok) toast('تم تنفيذ تجربة الإرسال ✓');
+}
+
 async function queueWA(phone, message, source = 'manual'){
   try {
     phone = normalizePhone(phone);
 
-    const { data: customerData } = await db
-      .from('customers')
-      .select('*')
-      .in('phone', [
+    if (!appSettings.whatsapp_enabled) {
+      toast('واتساب متوقف من الإعدادات', 'error');
+      return false;
+    }
+
+    // الخيار الأفضل: Queue عبر قاعدة البيانات
+    if (appSettings.whatsapp_method === 'queue') {
+      const { data: customerData } = await db
+        .from('customers')
+        .select('*')
+        .in('phone', [
+          phone,
+          phone.replace(/^0/, '966'),
+          phone.replace(/^0/, ''),
+          '+' + phone.replace(/^0/, '966')
+        ])
+        .limit(1);
+
+      const customer = customerData?.[0] || null;
+
+      const payload = {
         phone,
-        phone.replace(/^0/, '966'),
-        phone.replace(/^0/, ''),
-        '+' + phone.replace(/^0/, '966')
-      ])
-      .limit(1);
+        customer_name: customer?.name || null,
+        message,
+        type: 'whatsapp',
+        status: 'pending',
+        source,
+        customer_phone: phone,
+        branch: customer?.branch || currentBranch || null
+      };
 
-    const customer = customerData?.[0] || null;
+      const { error } = await db.from('outbox_messages').insert([payload]);
+      if (error) throw error;
 
-    const payload = {
-      phone,
-      customer_name: customer?.name || null,
-      message,
-      type: 'whatsapp',
-      status: 'pending',
-      source,
-      customer_phone: phone,
-      branch: customer?.branch || currentBranch || null
-    };
+      toast('تمت إضافة الرسالة للطابور ✓');
+      return true;
+    }
 
-    const { error } = await db.from('outbox_messages').insert([payload]);
-    if (error) throw error;
+    // API خارجي أو Edge Function
+    if (appSettings.whatsapp_method === 'api') {
+      if (!appSettings.whatsapp_endpoint) {
+        toast('أضف Endpoint في إعدادات واتساب', 'error');
+        return false;
+      }
 
-    toast('تمت إضافة الرسالة للطابور ✓');
-    return true;
+      const res = await fetch(appSettings.whatsapp_endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, message, source })
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        throw new Error(text || 'فشل الإرسال عبر API');
+      }
+
+      try {
+        await db.from('outbox_messages').insert([{
+          phone,
+          customer_name: null,
+          message,
+          type: 'whatsapp',
+          status: 'sent',
+          source,
+          customer_phone: phone,
+          branch: currentBranch || null
+        }]);
+      } catch(e) {
+        console.warn('outbox log warning', e);
+      }
+
+      toast('تم إرسال الرسالة عبر API ✓');
+      return true;
+    }
+
+    toast('طريقة إرسال غير معروفة', 'error');
+    return false;
+
   } catch (e) {
     console.error(e);
-    toast('فشل حفظ الرسالة في قاعدة البيانات', 'error');
+
+    try {
+      await db.from('outbox_messages').insert([{
+        phone: normalizePhone(phone),
+        customer_name: null,
+        message,
+        type: 'whatsapp',
+        status: 'failed',
+        source,
+        customer_phone: normalizePhone(phone),
+        branch: currentBranch || null,
+        error_message: e.message || 'Unknown error'
+      }]);
+    } catch(err) {
+      console.warn('failed log warning', err);
+    }
+
+    toast('فشل إرسال/حفظ الرسالة', 'error');
     return false;
   }
 }
@@ -441,6 +566,7 @@ async function getOutboxStats(){
 }
 
 async function initPanel(){
+  await loadAppSettings();
   shopName = await getShopName();
   document.getElementById('panel-title').textContent = shopName;
 
@@ -542,32 +668,26 @@ async function renderTab(){
 
     const days = [];
     const dayMax = [0];
-
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() - 6 + i);
       const ds = d.toISOString().slice(0, 10);
       let cnt = 0;
-
       custs.forEach(c => (c.history || []).forEach(hh => {
         if (hh.action === 'stamp' && hh.date?.slice(0, 10) === ds) cnt++;
       }));
-
       days.push({ day: d.toLocaleDateString('ar-SA', { weekday: 'short' }), count: cnt });
       if (cnt > dayMax[0]) dayMax[0] = cnt;
     }
-
     if (!dayMax[0]) dayMax[0] = 1;
 
     h += `<div class="sc"><h4 class="sec-t">📈 نشاط ٧ أيام</h4><div class="chart">${days.map(d => `<div class="bar-col"><div class="bar" style="height:${(d.count / dayMax[0]) * 100}%">${d.count > 0 ? '<span class="bar-n">' + d.count + '</span>' : ''}</div><span class="bar-d">${d.day}</span></div>`).join('')}</div></div>`;
-
     h += `<div class="sc"><h4 class="sec-t">⚡ ملخص</h4>
       <div class="qs"><span class="qs-l">إجمالي الأختام</span><span class="qs-v">${totalStamps}</span></div>
       <div class="qs"><span class="qs-l">نسبة النشاط</span><span class="qs-v">${custs.length ? Math.round(activeCusts.length / custs.length * 100) : 0}%</span></div>
       <div class="qs"><span class="qs-l">أعياد الشهر</span><span class="qs-v">${bdMonth.length}</span></div>
       <div class="qs"><span class="qs-l">رسائل قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
     </div>`;
-
     tc.innerHTML = h;
   }
 
@@ -731,9 +851,41 @@ async function renderTab(){
       </div>
 
       <div class="sc">
-        <h4 class="sec-t">💬 تكامل واتساب</h4>
-        <div class="qs"><span class="qs-l">طريقة الإرسال</span><span class="qs-v">عبر Supabase Queue</span></div>
-        <div class="qs"><span class="qs-l">اسم الجدول</span><span class="qs-v">outbox_messages</span></div>
+        <h4 class="sec-t">💬 إعدادات واتساب</h4>
+
+        <div class="toggle-row">
+          <span class="qs-l">تشغيل واتساب</span>
+          <input type="checkbox" id="wa-enabled" ${appSettings.whatsapp_enabled ? 'checked' : ''} />
+        </div>
+
+        <div class="field">
+          <label>طريقة الإرسال</label>
+          <select id="wa-method">
+            <option value="queue" ${appSettings.whatsapp_method === 'queue' ? 'selected' : ''}>Supabase Queue</option>
+            <option value="api" ${appSettings.whatsapp_method === 'api' ? 'selected' : ''}>API / Edge Function</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Endpoint (في حالة API فقط)</label>
+          <input id="wa-endpoint" value="${(appSettings.whatsapp_endpoint || '').replace(/"/g, '&quot;')}" placeholder="https://your-endpoint.example.com/send" dir="ltr" />
+        </div>
+
+        <div class="field">
+          <label>رقم تجربة الإرسال</label>
+          <input id="wa-test-phone" placeholder="05XXXXXXXX" dir="ltr" />
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-gold" onclick="saveWASettings()">💾 حفظ الإعدادات</button>
+          <button class="btn btn-dark" onclick="testWA()">🧪 تجربة الإرسال</button>
+        </div>
+      </div>
+
+      <div class="sc">
+        <h4 class="sec-t">📊 حالة واتساب</h4>
+        <div class="qs"><span class="qs-l">الحالة</span><span class="qs-v">${appSettings.whatsapp_enabled ? 'مفعل' : 'متوقف'}</span></div>
+        <div class="qs"><span class="qs-l">الطريقة</span><span class="qs-v">${appSettings.whatsapp_method === 'queue' ? 'Supabase Queue' : 'API'}</span></div>
         <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
         <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
         <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
@@ -764,366 +916,3 @@ function startQrScanner(){
       { facingMode: "environment" },
       { fps: 10, qrbox: 220 },
       async (decodedText) => {
-        await handleScannedCode(decodedText);
-        try { await html5QrScanner.stop(); } catch(e) {}
-      },
-      () => {}
-    ).catch(() => {
-      reader.innerHTML = '<p style="color:rgba(255,255,255,.4);text-align:center">تعذر تشغيل الكاميرا</p>';
-    });
-  }).catch(() => {
-    reader.innerHTML = '<p style="color:rgba(255,255,255,.4);text-align:center">تعذر الوصول للكاميرا</p>';
-  });
-}
-
-function stopQrScanner(){
-  if (html5QrScanner) {
-    try { html5QrScanner.stop(); } catch(e) {}
-    try { html5QrScanner.clear(); } catch(e) {}
-    html5QrScanner = null;
-  }
-}
-
-async function handleScannedCode(decodedText){
-  const phone = normalizePhone(decodedText);
-
-  if (!phone) {
-    toast('QR غير صالح', 'error');
-    return;
-  }
-
-  const input = document.getElementById('scan-input');
-  if (input) input.value = phone;
-
-  await fetchCustomerByPhone(phone);
-}
-
-async function doScanManual(){
-  const phone = document.getElementById('scan-input').value.trim();
-
-  if (!phone) {
-    toast('اكتب رقم العميل', 'error');
-    return;
-  }
-
-  await fetchCustomerByPhone(phone);
-}
-
-async function fetchCustomerByPhone(phone){
-  try {
-    const customer = await findCustomerByPhone(phone);
-
-    if (!customer) {
-      toast('العميل غير موجود', 'error');
-      return;
-    }
-
-    scanResult = customer;
-    renderScanResult();
-    toast('تم العثور على العميل ✓');
-  } catch (error) {
-    toast('خطأ في البحث: ' + error.message, 'error');
-  }
-}
-
-function renderScanResult(){
-  if (!scanResult) return;
-
-  const c = scanResult;
-  const stamps = normalizeStamps(c.stamps);
-  const done = stamps.filter(Boolean).length;
-  const el = document.getElementById('scan-result');
-  if (!el) return;
-
-  el.innerHTML = `
-    <div class="scan-card">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#C49B30);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:var(--dk2)">${(c.name || '?').charAt(0)}</div>
-        <div style="flex:1">
-          <h3 style="font-size:17px;font-weight:700">${c.name || '-'}</h3>
-          <p style="font-size:12px;color:rgba(255,255,255,.4);direction:ltr;text-align:right">${c.phone || '-'}</p>
-          ${c.birthday ? `<p style="font-size:11px;color:rgba(255,255,255,.3)">🎂 ${fmtBD(c.birthday)}</p>` : ''}
-        </div>
-        <div style="padding:4px 10px;border-radius:20px;border:1px solid rgba(212,175,55,.4);font-size:10px;color:var(--gold)">
-          ${BRANCHES[c.branch]?.icon || '🏢'} ${BRANCHES[c.branch]?.name || c.branch || ''}
-        </div>
-      </div>
-
-      <div class="scan-dots">
-        ${stamps.map((s, i) => `
-          <div class="scan-dot" style="
-            background:${s ? 'linear-gradient(135deg,var(--gold),#C49B30)' : 'rgba(255,255,255,.06)'};
-            border:${s ? '2px solid var(--gold)' : '2px dashed rgba(255,255,255,.12)'};
-            box-shadow:${s ? '0 2px 12px rgba(212,175,55,.3)' : 'none'};
-            color:${s ? 'var(--dk2)' : 'rgba(255,255,255,.25)'}
-          ">
-            ${s ? '✓' : (i + 1)}
-          </div>
-        `).join('')}
-      </div>
-
-      <div style="text-align:center;font-size:14px;color:var(--gold);margin-bottom:14px">${done}/5 أختام</div>
-
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-gold" style="flex:1" onclick="doStamp('${String(c.phone).replace(/'/g, "\\'")}')">✦ إضافة ختم</button>
-        <button class="btn btn-dark btn-sm" onclick="doReset('${String(c.phone).replace(/'/g, "\\'")}')">↺ تصفير</button>
-      </div>
-    </div>
-  `;
-}
-
-async function doStamp(phone){
-  const c = await findCustomerByPhone(phone);
-
-  if (!c) {
-    toast('تعذر تحميل العميل', 'error');
-    return;
-  }
-
-  const normalizedPhone = normalizePhone(c.phone);
-  const stamps = normalizeStamps(c.stamps);
-  const idx = stamps.findIndex(s => !s);
-
-  if (idx === -1) {
-    toast('البطاقة مكتملة!', 'error');
-    return;
-  }
-
-  stamps[idx] = true;
-  let history = Array.isArray(c.history) ? c.history : [];
-  history.push({
-    action: 'stamp',
-    date: new Date().toISOString(),
-    index: idx,
-    by: currentEmp ? currentEmp.name : 'المشرف',
-    branch: currentBranch
-  });
-
-  let total_rewards = Number(c.total_rewards || 0);
-  let waMessage = `مرحباً ${c.name} ✨\nتمت إضافة ختم جديد إلى بطاقتك في ${shopName}.`;
-
-  if (idx === 4) {
-    total_rewards += 1;
-    history.push({
-      action: 'reward',
-      date: new Date().toISOString(),
-      by: currentEmp ? currentEmp.name : 'المشرف',
-      branch: currentBranch
-    });
-    waMessage = `مبروك ${c.name} 🎉\nتم اكتمال البطاقة وحصلت على هدية مجانية من ${shopName}.`;
-    await saveNotif('reward', c.name, 'تمت إضافة هدية', 1);
-  } else {
-    await saveNotif('stamp', c.name, 'تمت إضافة ختم', 1);
-  }
-
-  const { error: updateError } = await db
-    .from('customers')
-    .update({ stamps, history, total_rewards })
-    .in('phone', [
-      normalizedPhone,
-      normalizedPhone.replace(/^0/, '966'),
-      normalizedPhone.replace(/^0/, ''),
-      '+' + normalizedPhone.replace(/^0/, '966')
-    ]);
-
-  if (updateError) {
-    toast('فشل إضافة الختم: ' + updateError.message, 'error');
-    return;
-  }
-
-  if (msgMethod === 'whatsapp') {
-    const queued = await queueWA(normalizedPhone, waMessage, 'stamp');
-    if (!queued) return;
-  }
-
-  await fetchCustomerByPhone(normalizedPhone);
-  toast('تم إضافة ختم ✓');
-  if (activeTab === 'customers' || activeTab === 'dashboard') await renderTab();
-}
-
-async function doReset(phone){
-  const c = await findCustomerByPhone(phone);
-
-  if (!c) {
-    toast('تعذر تحميل العميل', 'error');
-    return;
-  }
-
-  const normalizedPhone = normalizePhone(c.phone);
-  let history = Array.isArray(c.history) ? c.history : [];
-  history.push({
-    action: 'reset',
-    date: new Date().toISOString(),
-    by: currentEmp ? currentEmp.name : 'المشرف',
-    branch: currentBranch
-  });
-
-  const { error: updateError } = await db
-    .from('customers')
-    .update({ stamps: [false,false,false,false,false], history })
-    .in('phone', [
-      normalizedPhone,
-      normalizedPhone.replace(/^0/, '966'),
-      normalizedPhone.replace(/^0/, ''),
-      '+' + normalizedPhone.replace(/^0/, '966')
-    ]);
-
-  if (updateError) {
-    toast('فشل تصفير البطاقة: ' + updateError.message, 'error');
-    return;
-  }
-
-  await saveNotif('reset', c.name, 'تم تصفير البطاقة', 1);
-  await fetchCustomerByPhone(normalizedPhone);
-  toast('تم تصفير البطاقة ✓');
-  if (activeTab === 'customers' || activeTab === 'dashboard') await renderTab();
-}
-
-async function addCustomer(){
-  const name = document.getElementById('add-name').value.trim();
-  const phone = normalizePhone(document.getElementById('add-phone').value.trim());
-  const bd = document.getElementById('add-birthday').value;
-  const branchEl = document.querySelector('#add-branch-chips .branch-chip[style*="background"]');
-  const branch = branchEl ? branchEl.dataset.branch : currentBranch;
-
-  if (!name || !phone) {
-    toast('أدخل البيانات', 'error');
-    return;
-  }
-
-  const existing = await findCustomerByPhone(phone);
-  if (existing) {
-    toast('العميل موجود بالفعل', 'error');
-    return;
-  }
-
-  const referral_code = String(phone).slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
-
-  const { error } = await db.from('customers').insert([{
-    name,
-    phone,
-    birthday: bd || null,
-    stamps: [false,false,false,false,false],
-    total_rewards: 0,
-    created_at: new Date().toISOString(),
-    history: [],
-    referral_code,
-    branch
-  }]);
-
-  if (error) {
-    toast('فشل إضافة العميل: ' + error.message, 'error');
-    return;
-  }
-
-  toast('تم إضافة ' + name + ' ✓');
-  go('panel');
-  await renderTab();
-}
-
-async function addEmployee(){
-  const name = document.getElementById('new-emp-name').value.trim();
-  const pin = document.getElementById('new-emp-pin').value.trim();
-  const branch = document.getElementById('new-emp-branch').value || 'riyadh';
-
-  if (!name || !pin) {
-    toast('أدخل اسم الموظف والرمز', 'error');
-    return;
-  }
-
-  const { error } = await db.from('employees').insert([{ name, pin, branch }]);
-  if (error) {
-    toast('فشل إضافة الموظف: ' + error.message, 'error');
-    return;
-  }
-
-  toast('تم إضافة الموظف ✓');
-  await renderTab();
-}
-
-async function delEmployee(id){
-  const { error } = await db.from('employees').delete().eq('id', id);
-  if (error) {
-    toast('فشل حذف الموظف', 'error');
-    return;
-  }
-  toast('تم حذف الموظف ✓');
-  await renderTab();
-}
-
-async function quickSend(){
-  const rawPhone = document.getElementById('q-phone').value.trim();
-  const msg = document.getElementById('q-msg').value.trim();
-
-  if (!rawPhone || !msg) {
-    toast('اكتب رقم العميل والرسالة', 'error');
-    return;
-  }
-
-  try {
-    const c = await findCustomerByPhone(rawPhone);
-
-    if (!c) {
-      toast('العميل غير موجود', 'error');
-      return;
-    }
-
-    const phone = normalizePhone(c.phone);
-
-    const body = msg
-      .replace(/{name}/g, c.name || '')
-      .replace(/{stamps}/g, (c.stamps || []).filter(Boolean).length)
-      .replace(/{shop}/g, shopName || '');
-
-    if (msgMethod === 'whatsapp') {
-      const ok = await queueWA(phone, body, 'quickSend');
-      if (!ok) return;
-      await saveNotif('whatsapp', c.name, body, 1);
-      toast('تمت إضافة الرسالة للطابور ✓');
-    } else {
-      await saveNotif('push', c.name, body, 1);
-      toast('تم حفظ الإشعار الداخلي ✓');
-    }
-
-    document.getElementById('q-phone').value = '';
-    document.getElementById('q-msg').value = '';
-    await renderTab();
-  } catch (error) {
-    toast('خطأ: ' + error.message, 'error');
-  }
-}
-
-async function saveShopName(){
-  const newName = document.getElementById('shop-name-input').value.trim() || 'متجر الولاء';
-  const { data, error } = await db.from('shop_settings').select('*').limit(1);
-
-  if (error) {
-    toast('فشل قراءة الإعدادات', 'error');
-    return;
-  }
-
-  if (data && data.length) {
-    const { error: updateError } = await db.from('shop_settings').update({ shop_name: newName }).eq('id', data[0].id);
-    if (updateError) {
-      toast('فشل حفظ اسم المتجر', 'error');
-      return;
-    }
-  } else {
-    const { error: insertError } = await db.from('shop_settings').insert([{ shop_name: newName }]);
-    if (insertError) {
-      toast('فشل حفظ اسم المتجر', 'error');
-      return;
-    }
-  }
-
-  shopName = newName;
-  document.getElementById('panel-title').textContent = shopName;
-  toast('تم حفظ اسم المتجر ✓');
-  await renderTab();
-}
-
-window.addEventListener('beforeunload', stopQrScanner);
-setMode('admin');
-</script>
-</body>
-</html>
