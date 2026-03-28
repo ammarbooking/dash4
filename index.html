@@ -1,853 +1,484 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0A0A0F">
-<title>لوحة التحكم ✦</title>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Noto+Kufi+Arabic:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-:root{--gold:#D4AF37;--gold2:#F5E6A3;--gold3:#B8960C;--dk:#0A0A0F;--dk2:#1A1425;--dk3:#140F23;--grn:#2ECC71;--red:#E74C3C;--blue:#3498DB}
-*{box-sizing:border-box;margin:0;padding:0}
-body{min-height:100vh;background:linear-gradient(160deg,var(--dk),var(--dk2) 40%,#0D0D15);font-family:'Tajawal',sans-serif;color:#fff;overflow-x:hidden}
-.bg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 20% 20%,rgba(212,175,55,0.06),transparent 50%),radial-gradient(circle at 80% 80%,rgba(212,175,55,0.04),transparent 50%)}
-
-@keyframes slideUp{from{transform:translateY(25px);opacity:0}to{transform:translateY(0);opacity:1}}
-@keyframes popIn{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
-@keyframes scanMove{0%,100%{top:10%}50%{top:85%}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes confetti{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-100px) scale(0);opacity:0}}
-
-.page{display:none;flex-direction:column;align-items:center;padding:20px 14px;min-height:100vh;position:relative;z-index:1}
-.page.active{display:flex;animation:slideUp .4s ease}
-
-/* Buttons */
-.btn{width:100%;padding:14px;border-radius:16px;border:none;font-size:16px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s}
-.btn:active{transform:scale(.97)}
-.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold3));color:var(--dk);box-shadow:0 4px 16px rgba(212,175,55,.25)}
-.btn-dark{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.7)}
-.btn-outline{background:transparent;border:1px solid rgba(212,175,55,.3);color:var(--gold)}
-.btn-green{background:linear-gradient(135deg,var(--grn),#27AE60);color:#fff}
-.btn-red{background:var(--red);color:#fff;font-size:12px;padding:6px 14px;border-radius:10px;width:auto}
-.btn-sm{width:auto;padding:10px 18px;font-size:13px}
-.back-btn{background:none;border:none;color:rgba(255,255,255,.5);font-size:14px;font-family:'Tajawal',sans-serif;cursor:pointer;align-self:flex-start;margin-bottom:16px}
-
-/* Form */
-.form-wrap{display:flex;flex-direction:column;align-items:center;width:100%;max-width:380px;justify-content:center;min-height:70vh}
-.form-title{font-family:'Noto Kufi Arabic',sans-serif;font-size:22px;font-weight:700;color:var(--gold);margin-bottom:24px}
-.field{width:100%;margin-bottom:14px}
-.field label{font-size:13px;color:rgba(255,255,255,.5);display:block;margin-bottom:6px}
-.field input,.field textarea{width:100%;padding:13px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:15px;font-family:'Tajawal',sans-serif}
-.field input:focus,.field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,175,55,.15)}
-.field textarea{resize:vertical;line-height:1.7;font-size:14px}
-
-/* Tabs */
-.tabs{display:flex;gap:2px;margin-bottom:14px;background:rgba(255,255,255,.03);border-radius:14px;padding:3px;width:100%}
-.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border-radius:10px;border:none;background:transparent;color:rgba(255,255,255,.4);font-family:'Tajawal',sans-serif;cursor:pointer;font-size:9px;font-weight:600}
-.tab.on{background:rgba(212,175,55,.15);color:var(--gold)}
-.tab-icon{font-size:15px}
-
-/* Cards */
-.sc{background:rgba(255,255,255,.03);border-radius:16px;padding:16px;border:1px solid rgba(255,255,255,.06);margin-bottom:12px;width:100%}
-.sec-t{font-size:14px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px}
-
-/* Stats Grid */
-.g4{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;width:100%}
-.stat-card{border-radius:16px;padding:14px 12px;border:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;align-items:center;gap:4px}
-.stat-icon{font-size:18px}
-.stat-num{font-size:26px;font-weight:900}
-.stat-label{font-size:11px;color:rgba(255,255,255,.4)}
-
-/* Customer Row */
-.c-row{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);margin-bottom:8px;flex-wrap:wrap;gap:8px}
-.r-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0}
-.mini-dots{display:flex;gap:3px}
-.mini-dot{width:8px;height:8px;border-radius:50%}
-.sm-gold{padding:4px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold),var(--gold3));color:var(--dk);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer}
-.sm-icon{padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;font-size:13px;cursor:pointer}
-
-/* Chips */
-.chip{padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:11px;font-family:'Tajawal',sans-serif;cursor:pointer;white-space:nowrap}
-.chip.on{background:rgba(212,175,55,.2);border-color:rgba(212,175,55,.4);color:var(--gold)}
-.branch-chip{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:12px;font-family:'Tajawal',sans-serif;cursor:pointer}
-
-/* Quick Stat Row */
-.qs{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
-.qs-l{font-size:13px;color:rgba(255,255,255,.5)}
-.qs-v{font-size:15px;font-weight:700;color:var(--gold)}
-
-/* Chart */
-.chart{display:flex;justify-content:space-between;align-items:flex-end;height:120px;gap:4px;padding-top:8px}
-.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-.bar{min-height:4px;width:100%;background:linear-gradient(180deg,var(--gold),var(--gold3));border-radius:6px 6px 0 0;display:flex;align-items:flex-start;justify-content:center;transition:height .5s}
-.bar-n{font-size:10px;font-weight:700;color:var(--dk2);margin-top:2px}
-.bar-d{font-size:10px;color:rgba(255,255,255,.3);margin-top:6px}
-
-/* Scan */
-.scan-frame{width:100%;aspect-ratio:1.2;border-radius:20px;background:rgba(0,0,0,.4);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;max-height:220px;margin-bottom:16px}
-.scan-corner{position:absolute;width:40px;height:40px;border-top:3px solid var(--gold);border-right:3px solid var(--gold)}
-.scan-line{position:absolute;left:10%;right:10%;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);box-shadow:0 0 12px rgba(212,175,55,.5);animation:scanMove 2.5s ease-in-out infinite}
-.scan-card{width:100%;padding:20px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(212,175,55,.2);margin-top:16px;animation:popIn .3s ease}
-.scan-dots{display:flex;justify-content:center;gap:8px;margin-bottom:16px}
-.scan-dot{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:rgba(255,255,255,.25)}
-
-/* Alert */
-.alert{border-radius:16px;padding:14px;margin-bottom:12px}
-.alert-bd{background:rgba(255,183,77,.08);border:1px solid rgba(255,183,77,.2)}
-.alert-red{background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.15)}
-.alert-chip{font-size:12px;padding:4px 10px;border-radius:8px;display:inline-block;margin-left:4px;margin-bottom:4px}
-
-/* Message Action */
-.m-action{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);font-family:'Tajawal',sans-serif;cursor:pointer}
-.method-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-family:'Tajawal',sans-serif;color:rgba(255,255,255,.5);cursor:pointer}
-.method-btn.on{background:rgba(212,175,55,.1);border-color:rgba(212,175,55,.3);color:var(--gold)}
-.tmp-btn{width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);margin-bottom:4px;font-family:'Tajawal',sans-serif;cursor:pointer;text-align:right}
-.push-preview{background:rgba(0,0,0,.4);border-radius:14px;padding:14px 16px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06)}
-
-/* Modal */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:50;padding:14px}
-.overlay.active{display:flex}
-.modal{background:linear-gradient(160deg,#1E192D,var(--dk3));border-radius:24px;padding:22px;max-width:400px;width:100%;border:1px solid rgba(212,175,55,.2);animation:popIn .4s ease;max-height:90vh;overflow-y:auto}
-.modal-close{width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-
-/* FAB */
-.fab{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--gold),var(--gold3));color:var(--dk2);font-size:28px;font-weight:300;box-shadow:0 6px 24px rgba(212,175,55,.4);z-index:10;cursor:pointer;display:none}
-
-/* Toast */
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;z-index:200;font-family:'Tajawal',sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3);display:none}
-.toast.show{display:block;animation:popIn .3s ease}
-
-.empty{display:flex;flex-direction:column;align-items:center;padding:40px 20px;color:rgba(255,255,255,.3);gap:8px}
-.divider{display:flex;align-items:center;gap:12px;width:100%;margin:16px 0}.divider span{font-size:12px;color:rgba(255,255,255,.25);white-space:nowrap}.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
-.particle{position:fixed;border-radius:50%;pointer-events:none;z-index:100;animation:confetti 2s ease-out forwards}
-
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(212,175,55,.2);border-radius:4px}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة التحكم</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --gold:#D4AF37;--gold2:#F5E6A3;--gold3:#B8960C;--dk:#0A0A0F;--dk2:#1A1425;
+      --green:#2ECC71;--red:#E74C3C;--blue:#3498DB;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;
+      background:linear-gradient(160deg,var(--dk),var(--dk2) 40%,#0D0D15);
+      color:#fff;
+      font-family:Tahoma,Arial,sans-serif;
+      padding:20px;
+    }
+    .wrap{max-width:980px;margin:auto}
+    .card{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:18px;
+      margin-bottom:14px;
+    }
+    .title{
+      text-align:center;
+      color:var(--gold);
+      font-size:34px;
+      font-weight:700;
+      margin-bottom:18px;
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .col{flex:1;min-width:220px}
+    input,select,button{
+      width:100%;
+      padding:14px;
+      border-radius:14px;
+      border:none;
+      font-size:15px;
+    }
+    input,select{
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.08);
+      margin-bottom:10px;
+    }
+    button{
+      cursor:pointer;
+      font-weight:700;
+    }
+    .btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold3));color:#111}
+    .btn-dark{background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.08)}
+    .btn-green{background:linear-gradient(135deg,var(--green),#27AE60);color:#fff}
+    .btn-red{background:var(--red);color:#fff}
+    .tabs{display:flex;gap:8px;margin-bottom:14px}
+    .tab{flex:1}
+    .hidden{display:none !important}
+    .small{font-size:12px;opacity:.7}
+    .customer{
+      padding:14px;
+      border-radius:14px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.06);
+      margin-bottom:10px;
+    }
+    .customer-top{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+    }
+    .badge{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:20px;
+      font-size:12px;
+      background:rgba(212,175,55,.12);
+      color:var(--gold);
+      border:1px solid rgba(212,175,55,.25);
+    }
+    .stamps{display:flex;gap:6px;margin-top:10px}
+    .stamp{
+      width:28px;height:28px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:12px;font-weight:bold;
+      background:rgba(255,255,255,.08);color:#999;
+      border:1px dashed rgba(255,255,255,.18);
+    }
+    .stamp.on{
+      background:linear-gradient(135deg,var(--gold),var(--gold3));
+      color:#111;border:1px solid var(--gold);
+    }
+    .section-title{
+      color:var(--gold);
+      margin-bottom:10px;
+      font-size:20px;
+      font-weight:700;
+    }
+    .topbar{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      margin-bottom:14px;flex-wrap:wrap;
+    }
+    .muted{opacity:.75}
+    #msg{
+      margin:10px 0 0;
+      padding:12px 14px;
+      border-radius:12px;
+      display:none;
+      font-size:14px;
+    }
+    #msg.ok{display:block;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.3);color:#8ff0b3}
+    #msg.err{display:block;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);color:#ffb3aa}
+  </style>
 </head>
 <body>
-<div class="bg"></div>
-<div class="toast" id="toast"></div>
+<div class="wrap">
 
-<!-- ====== LOGIN ====== -->
-<div class="page active" id="page-login">
-  <div class="form-wrap">
-    <div style="font-size:48px;margin-bottom:12px">✦</div>
-    <h2 class="form-title">لوحة التحكم</h2>
+  <div id="loginPage" class="card">
+    <div class="title">لوحة التحكم</div>
 
-    <div style="display:flex;gap:6px;margin-bottom:24px;width:100%">
-      <button class="chip on" id="mode-admin" onclick="setMode('admin')" style="flex:1;text-align:center;padding:10px">🔐 مشرف</button>
-      <button class="chip" id="mode-emp" onclick="setMode('emp')" style="flex:1;text-align:center;padding:10px">👤 موظف</button>
+    <div class="tabs">
+      <button class="btn-gold tab" id="adminTabBtn" onclick="setMode('admin')">🔐 مشرف</button>
+      <button class="btn-dark tab" id="empTabBtn" onclick="setMode('emp')">👤 موظف</button>
     </div>
 
-    <div id="login-admin">
-      <div class="field"><label>رمز المشرف</label><input type="password" id="admin-pin" placeholder="****" dir="ltr" maxlength="6"></div>
-      <button class="btn btn-gold" onclick="loginAdmin()">دخول كمشرف</button>
+    <div id="adminLogin">
+      <div class="row">
+        <div class="col">
+          <input type="password" id="adminPin" placeholder="رمز المشرف">
+        </div>
+      </div>
+      <button class="btn-gold" onclick="loginAdmin()">دخول كمشرف</button>
+      <div class="small" style="margin-top:8px">رمز المشرف الافتراضي: 1234</div>
     </div>
 
-    <div id="login-emp" style="display:none">
-      <div class="field"><label>اسم الموظف</label><input id="emp-login-name" placeholder="أدخل اسمك"></div>
-      <div class="field"><label>رمز الموظف</label><input type="password" id="emp-login-pin" placeholder="****" dir="ltr" maxlength="6"></div>
-      <button class="btn btn-green" onclick="loginEmployee()">دخول كموظف</button>
+    <div id="empLogin" class="hidden">
+      <div class="row">
+        <div class="col"><input id="empName" placeholder="اسم الموظف"></div>
+        <div class="col"><input type="password" id="empPin" placeholder="رمز الموظف"></div>
+      </div>
+      <button class="btn-green" onclick="loginEmployee()">دخول كموظف</button>
+      <div class="small" style="margin-top:8px">لازم يكون الموظف موجود في جدول employees</div>
     </div>
 
-    <p style="font-size:12px;color:rgba(255,255,255,.25);margin-top:20px">رمز المشرف: 1234</p>
+    <div id="msg"></div>
   </div>
-</div>
 
-<!-- ====== ADMIN PANEL ====== -->
-<div class="page" id="page-panel" style="max-width:460px;margin:0 auto">
-  <!-- Header -->
-  <div style="width:100%;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <button class="back-btn" onclick="logoutAdmin()">→ خروج</button>
-      <span id="emp-badge" style="display:none;font-size:11px;padding:4px 12px;border-radius:10px;background:rgba(46,204,113,.15);color:#2ECC71"></span>
+  <div id="panelPage" class="hidden">
+    <div class="topbar">
+      <div>
+        <div class="title" style="text-align:right;font-size:28px;margin-bottom:6px">متجر الولاء</div>
+        <div class="muted" id="sessionInfo"></div>
+      </div>
+      <button class="btn-red" style="width:auto;padding:12px 18px" onclick="logout()">خروج</button>
     </div>
-    <h2 style="font-family:'Noto Kufi Arabic',sans-serif;font-size:22px;font-weight:700;color:var(--gold)" id="panel-title">متجر الولاء</h2>
-    <div id="branch-selector" style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"></div>
-    <div id="emp-branch-info" style="display:none;margin-top:8px;font-size:13px;color:rgba(255,255,255,.4)"></div>
+
+    <div class="row">
+      <div class="col card">
+        <div class="section-title">إضافة عميل</div>
+        <input id="newName" placeholder="اسم العميل">
+        <input id="newPhone" placeholder="رقم الهاتف">
+        <input id="newBirthday" type="date">
+        <select id="newBranch">
+          <option value="riyadh">فرع الرياض</option>
+          <option value="dammam">فرع الدمام</option>
+          <option value="truck_riyadh">ترك الرياض</option>
+        </select>
+        <button class="btn-gold" onclick="addCustomer()">إضافة العميل</button>
+      </div>
+
+      <div class="col card" id="employeesBox">
+        <div class="section-title">إضافة موظف</div>
+        <input id="addEmpName" placeholder="اسم الموظف">
+        <input id="addEmpPin" placeholder="رمز الموظف">
+        <select id="addEmpBranch">
+          <option value="riyadh">فرع الرياض</option>
+          <option value="dammam">فرع الدمام</option>
+          <option value="truck_riyadh">ترك الرياض</option>
+        </select>
+        <button class="btn-green" onclick="addEmployee()">إضافة موظف</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">العملاء</div>
+      <input id="searchInput" placeholder="بحث بالاسم أو الهاتف" oninput="renderCustomers()">
+      <div id="customersList"></div>
+    </div>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs" id="tabs-container"></div>
-
-  <!-- Tab Content -->
-  <div style="width:100%;flex:1" id="tab-content"></div>
-  <button class="fab" id="fab-btn" onclick="goAddCustomer()">+</button>
 </div>
 
-<!-- ====== ADD CUSTOMER ====== -->
-<div class="page" id="page-add">
-  <div class="form-wrap">
-    <button class="back-btn" onclick="go('panel');renderTab()">→ رجوع</button>
-    <div style="font-size:40px">➕</div>
-    <h2 class="form-title">إضافة عميل</h2>
-    <div class="field"><label>الاسم</label><input id="add-name" placeholder="الاسم الكامل"></div>
-    <div class="field"><label>رقم الهاتف</label><input type="tel" id="add-phone" placeholder="05XXXXXXXX" dir="ltr"></div>
-    <div class="field"><label>تاريخ الميلاد</label><input type="date" id="add-birthday" dir="ltr"></div>
-    <div class="field"><label>الفرع</label><div id="add-branch-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
-    <button class="btn btn-gold" onclick="addCustomer()">إضافة العميل</button>
-  </div>
-</div>
+<script>
+  // ===== Supabase =====
+  const SUPABASE_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-<!-- ====== MSG MODAL ====== -->
-<div class="overlay" id="msg-modal">
-  <div class="modal" id="msg-modal-content"></div>
-</div>
+  // ===== State =====
+  let mode = 'admin';
+  let isAdmin = false;
+  let currentEmployee = null;
+  let customers = [];
 
-<!-- ====== REWARD MODAL ====== -->
-<div class="overlay" id="reward-modal">
-  <div class="modal" style="text-align:center;max-width:340px">
-    <div style="font-size:56px">🎉</div>
-    <h2 style="font-size:28px;font-weight:900;color:var(--gold);font-family:'Noto Kufi Arabic',sans-serif">مبروك!</h2>
-    <p style="font-size:15px;color:rgba(255,255,255,.6)" id="reward-name"></p>
-    <p style="font-size:12px;color:rgba(255,255,255,.3)">✓ واتساب تلقائي | ✓ إعادة تعيين البطاقة</p>
-    <button class="btn btn-gold" style="margin-top:12px" onclick="closeReward()">تم 🙌</button>
-  </div>
-</div>
-
-
-<script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const SUPABASE_URL = 'PUT_YOUR_SUPABASE_URL_HERE';
-const SUPABASE_KEY = 'PUT_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// ============ CONFIG ============
-const ADMIN_PIN = "1234";
-const BRANCHES = {
-  riyadh: { name: "فرع الرياض", icon: "🏢", color: "#D4AF37" },
-  dammam: { name: "فرع الدمام", icon: "🏬", color: "#3498DB" },
-  truck_riyadh: { name: "ترك الرياض", icon: "🚚", color: "#E74C3C" },
-};
-const WA_API = { instanceId: "669D7FC419A08", token: "669c3f9310ef5", baseUrl: "https://api.ultramsg.com" };
-
-// ============ STATE ============
-let isAdmin = false;
-let currentEmp = null;
-let currentBranch = "riyadh";
-let activeTab = "dashboard";
-let shopName = "متجر الولاء";
-let scanResult = null;
-let msgMethod = "push";
-let customersCache = [];
-let employeesCache = [];
-let notifCache = [];
-let searchQuery = "";
-let selectedModalTarget = "all";
-let selectedTemplate = "";
-let realtimeChannel = null;
-
-// ============ HELPERS ============
-const $ = (id) => document.getElementById(id);
-const toast = (msg, type) => {
-  const t = $('toast');
-  t.textContent = msg;
-  t.style.background = type === 'error' ? '#E74C3C' : '#2ECC71';
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
-};
-function go(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const el = $('page-' + page);
-  if (el) {
-    el.classList.add('active');
-    el.style.animation = 'none';
-    el.offsetHeight;
-    el.style.animation = 'slideUp .4s ease';
-  }
-}
-const sanitizePhone = (phone) => String(phone || '').replace(/[^\d+]/g, '');
-const generateReferralCode = (phone) => String(phone || '').slice(-4) + Math.random().toString(36).slice(2, 5).toUpperCase();
-const nowIso = () => new Date().toISOString();
-const fmt = (d) => d ? new Date(d).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' }) : '-';
-const fmtT = (d) => d ? new Date(d).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '';
-const fmtBD = (bd) => bd ? new Date(bd).toLocaleDateString('ar-SA', { month: 'long', day: 'numeric' }) : '-';
-const daysSince = (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 864e5) : 999;
-const stampsArray = (arr) => Array.isArray(arr) && arr.length ? arr.map(Boolean).slice(0,5).concat(Array(Math.max(0,5-arr.length)).fill(false)).slice(0,5) : [false,false,false,false,false];
-const stampsCount = (arr) => stampsArray(arr).filter(Boolean).length;
-const getLastVisit = (c) => Array.isArray(c.history) && c.history.length ? c.history[c.history.length - 1].date : c.created_at;
-const isActive = (c) => daysSince(getLastVisit(c)) <= 14;
-const isBDToday = (c) => { if (!c.birthday) return false; const t = new Date(), b = new Date(c.birthday); return b.getMonth() === t.getMonth() && b.getDate() === t.getDate(); };
-const isBDWeek = (c) => {
-  if (!c.birthday) return false;
-  const t = new Date(), b = new Date(c.birthday);
-  for (let i = 0; i < 7; i++) { const d = new Date(t); d.setDate(d.getDate() + i); if (b.getMonth() === d.getMonth() && b.getDate() === d.getDate()) return true; }
-  return false;
-};
-const isBDMonth = (c) => c.birthday ? new Date(c.birthday).getMonth() === new Date().getMonth() : false;
-function getTier(c) {
-  const v = Number(c.visits_count || 0);
-  if (v >= 20) return { name: 'ذهبي', icon: '👑', color: '#FFD700' };
-  if (v >= 10) return { name: 'فضي', icon: '🥈', color: '#C0C0C0' };
-  return { name: 'برونزي', icon: '🥉', color: '#CD7F32' };
-}
-function getBranchCusts(branch) {
-  return branch ? customersCache.filter(c => (c.branch || 'riyadh') === branch) : customersCache.slice();
-}
-function setBranch(b) { currentBranch = b; initPanel(); }
-function switchTab(t) { activeTab = t; initPanel(); }
-function setMode(mode) {
-  $('mode-admin').className = 'chip' + (mode === 'admin' ? ' on' : '');
-  $('mode-emp').className = 'chip' + (mode === 'emp' ? ' on' : '');
-  $('login-admin').style.display = mode === 'admin' ? 'block' : 'none';
-  $('login-emp').style.display = mode === 'emp' ? 'block' : 'none';
-}
-window.setMode = setMode;
-window.setBranch = setBranch;
-window.switchTab = switchTab;
-
-// ============ SUPABASE ============
-async function loadCustomers() {
-  const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); throw error; }
-  customersCache = (data || []).map(c => ({
-    ...c,
-    stamps: stampsArray(c.stamps),
-    history: Array.isArray(c.history) ? c.history : []
-  }));
-}
-async function loadEmployees() {
-  const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); throw error; }
-  employeesCache = data || [];
-}
-async function loadNotifications() {
-  const { data, error } = await supabase.from('loyalty_notifications').select('*').order('date', { ascending: false }).limit(100);
-  if (error) { console.error(error); throw error; }
-  notifCache = data || [];
-}
-async function loadShopName() {
-  const { data } = await supabase.from('shop_settings').select('value').eq('key', 'shop_name').maybeSingle();
-  shopName = data?.value?.name || 'متجر الولاء';
-}
-async function refreshAll() {
-  try {
-    await Promise.all([loadCustomers(), loadEmployees(), loadNotifications(), loadShopName()]);
-    if ($('page-panel').classList.contains('active')) initPanel();
-  } catch (e) {
-    console.error(e);
-    toast('تأكد من إعداد Supabase وتشغيل ملف SQL', 'error');
-  }
-}
-function bindRealtime() {
-  if (realtimeChannel) supabase.removeChannel(realtimeChannel);
-  realtimeChannel = supabase.channel('loyalty-admin-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, refreshAll)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, refreshAll)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'loyalty_notifications' }, refreshAll)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shop_settings' }, refreshAll)
-    .subscribe();
-}
-
-async function updateCustomer(phone, patch) {
-  const { error } = await supabase.from('customers').update({ ...patch, updated_at: nowIso() }).eq('phone', phone);
-  if (error) throw error;
-}
-async function insertNotification(payload) {
-  const { error } = await supabase.from('loyalty_notifications').insert(payload);
-  if (error) throw error;
-}
-async function saveShopName(name) {
-  const payload = { key: 'shop_name', value: { name } };
-  const { error } = await supabase.from('shop_settings').upsert(payload, { onConflict: 'key' });
-  if (error) throw error;
-}
-
-// ============ WHATSAPP / PUSH ============
-async function sendWA(phone, message) {
-  const clean = sanitizePhone(phone);
-  const full = clean.startsWith('0') ? '966' + clean.slice(1) : clean;
-  try {
-    const res = await fetch(`${WA_API.baseUrl}/${WA_API.instanceId}/messages/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: WA_API.token, to: full, body: message }),
-    });
-    const data = await res.json();
-    return !!(data.sent === 'true' || data.sent === true || data.id);
-  } catch (e) {
-    window.open('https://wa.me/' + full + '?text=' + encodeURIComponent(message), '_blank');
-    return false;
-  }
-}
-function sendPushNotif(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try {
-    const icon = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#D4AF37"/><text x="50" y="62" text-anchor="middle" font-size="45" fill="#1A1425" font-weight="bold">✦</text></svg>');
-    new Notification(title, { body, icon, vibrate: [200, 100, 200], dir: 'rtl', lang: 'ar', tag: 'loyalty-' + Date.now() });
-  } catch (e) {}
-}
-
-// ============ LOGIN ============
-async function loginAdmin() {
-  if ($('admin-pin').value !== ADMIN_PIN) { toast('رمز خاطئ', 'error'); return; }
-  isAdmin = true;
-  currentEmp = null;
-  currentBranch = 'riyadh';
-  activeTab = 'dashboard';
-  await refreshAll();
-  initPanel();
-  go('panel');
-}
-async function loginEmployee() {
-  const name = $('emp-login-name').value.trim();
-  const pin = $('emp-login-pin').value;
-  await loadEmployees();
-  const emp = employeesCache.find(e => e.name === name && e.pin === pin);
-  if (!emp) { toast('بيانات خاطئة', 'error'); return; }
-  isAdmin = false;
-  currentEmp = emp;
-  currentBranch = emp.branch;
-  activeTab = 'scan';
-  await refreshAll();
-  initPanel();
-  go('panel');
-  toast('مرحباً ' + emp.name + '! 👋');
-}
-function logoutAdmin() {
-  isAdmin = false;
-  currentEmp = null;
-  scanResult = null;
-  go('login');
-}
-window.loginAdmin = loginAdmin;
-window.loginEmployee = loginEmployee;
-window.logoutAdmin = logoutAdmin;
-
-// ============ PANEL ============
-function initPanel() {
-  $('panel-title').textContent = shopName;
-  const badge = $('emp-badge');
-  if (currentEmp) { badge.style.display = 'inline'; badge.textContent = '👤 ' + currentEmp.name; }
-  else badge.style.display = 'none';
-
-  const bs = $('branch-selector');
-  const bi = $('emp-branch-info');
-  if (isAdmin) {
-    bs.style.display = 'flex';
-    bi.style.display = 'none';
-    bs.innerHTML = Object.entries(BRANCHES).map(([id, b]) =>
-      `<button class="branch-chip" onclick="setBranch('${id}')" style="${currentBranch === id ? 'background:' + b.color + '30;border-color:' + b.color + ';color:' + b.color : ''}">${b.icon} ${b.name}</button>`
-    ).join('') + `<button class="branch-chip" onclick="setBranch(null)" style="${!currentBranch ? 'background:rgba(255,255,255,.15);border-color:#fff;color:#fff' : ''}">📊 الكل</button>`;
-  } else {
-    bs.style.display = 'none';
-    bi.style.display = 'block';
-    bi.innerHTML = 'الفرع: <span style="font-weight:700;color:' + (BRANCHES[currentBranch]?.color || '#D4AF37') + '">' + (BRANCHES[currentBranch]?.icon || '') + ' ' + (BRANCHES[currentBranch]?.name || '') + '</span>';
+  // ===== Helpers =====
+  function showMsg(text, type='ok'){
+    const box = document.getElementById('msg');
+    box.className = type === 'err' ? 'err' : 'ok';
+    box.textContent = text;
   }
 
-  const tabs = currentEmp
-    ? [{ id: 'scan', i: '📷', l: 'مسح' }]
-    : [{ id: 'dashboard', i: '📊', l: 'إحصائيات' }, { id: 'customers', i: '👥', l: 'العملاء' }, { id: 'scan', i: '📷', l: 'مسح' }, { id: 'messages', i: '💬', l: 'رسائل' }, { id: 'team', i: '🧑‍💼', l: 'الفريق' }, { id: 'settings', i: '⚙️', l: 'إعدادات' }];
-  $('tabs-container').innerHTML = tabs.map(t =>
-    `<button class="tab${activeTab === t.id ? ' on' : ''}" onclick="switchTab('${t.id}')"><span class="tab-icon">${t.i}</span>${t.l}</button>`
-  ).join('');
-  renderTab();
-}
+  function clearMsg(){
+    const box = document.getElementById('msg');
+    box.className = '';
+    box.style.display = 'none';
+    box.textContent = '';
+  }
 
-function renderTab() {
-  const tc = $('tab-content');
-  const fab = $('fab-btn');
-  fab.style.display = activeTab === 'customers' && isAdmin ? 'block' : 'none';
-
-  const custs = getBranchCusts(currentBranch);
-  const allG = customersCache.slice();
-  const activeCusts = custs.filter(isActive);
-  const inactiveCusts = custs.filter(c => !isActive(c));
-  const totalRewards = custs.reduce((s, c) => s + Number(c.total_rewards || 0), 0);
-  const totalStamps = custs.reduce((s, c) => s + stampsCount(c.stamps) + (Number(c.total_rewards || 0) * 5), 0);
-  const bdToday = custs.filter(isBDToday);
-  const bdWeek = custs.filter(isBDWeek);
-  const bdMonth = custs.filter(isBDMonth);
-  const notifs = notifCache;
-
-  if (activeTab === 'dashboard') {
-    let h = `<div class="g4">
-      <div class="stat-card" style="background:rgba(212,175,55,.1)"><span class="stat-icon">👥</span><span class="stat-num" style="color:var(--gold)">${custs.length}</span><span class="stat-label">العملاء</span></div>
-      <div class="stat-card" style="background:rgba(46,204,113,.1)"><span class="stat-icon">🟢</span><span class="stat-num" style="color:var(--grn)">${activeCusts.length}</span><span class="stat-label">متواصلين</span></div>
-      <div class="stat-card" style="background:rgba(231,76,60,.1)"><span class="stat-icon">🔴</span><span class="stat-num" style="color:var(--red)">${inactiveCusts.length}</span><span class="stat-label">منقطعين</span></div>
-      <div class="stat-card" style="background:rgba(155,89,182,.1)"><span class="stat-icon">🎁</span><span class="stat-num" style="color:#9B59B6">${totalRewards}</span><span class="stat-label">هدايا</span></div>
-    </div>`;
-
-    if (bdToday.length) h += `<div class="alert alert-bd"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:14px;font-weight:700">🎂 أعياد ميلاد اليوم!</span><button class="btn-red" style="background:#FF9800" onclick="openMsgModal('birthday')">أرسل تهنئة 🎉</button></div>${bdToday.map(c => '<span class="alert-chip" style="background:rgba(255,183,77,.15);color:#FFB74D">' + c.name + ' 🎂</span>').join('')}</div>`;
-    else if (bdWeek.length) h += `<div class="alert alert-bd"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:14px;font-weight:700;color:var(--gold)">🎂 أعياد ميلاد هذا الأسبوع</span><button class="btn-red" style="background:var(--gold)" onclick="openMsgModal('birthday')">أرسل تهنئة</button></div><div style="display:flex;gap:6px;flex-wrap:wrap">${bdWeek.map(c => '<span class="alert-chip" style="background:rgba(255,183,77,.15);color:#FFB74D">' + c.name + ' - ' + fmtBD(c.birthday) + '</span>').join('')}</div></div>`;
-
-    const days = []; const dayMax = [1];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(); d.setDate(d.getDate() - 6 + i);
-      const ds = d.toISOString().slice(0, 10);
-      let cnt = 0;
-      custs.forEach(c => (c.history || []).forEach(hh => { if (hh.action === 'stamp' && String(hh.date || '').slice(0,10) === ds) cnt++; }));
-      days.push({ day: d.toLocaleDateString('ar-SA', { weekday: 'short' }), count: cnt });
-      if (cnt > dayMax[0]) dayMax[0] = cnt;
+  function normalizeStamps(val){
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed;
+      } catch(e){}
     }
-    h += `<div class="sc"><h4 class="sec-t">📈 نشاط ٧ أيام</h4><div class="chart">${days.map(d => `<div class="bar-col"><div class="bar" style="height:${(d.count / dayMax[0]) * 100}%">${d.count > 0 ? '<span class="bar-n">' + d.count + '</span>' : ''}</div><span class="bar-d">${d.day}</span></div>`).join('')}</div></div>`;
-    h += `<div class="sc"><h4 class="sec-t">⚡ ملخص</h4>
-      <div class="qs"><span class="qs-l">إجمالي الأختام</span><span class="qs-v">${totalStamps}</span></div>
-      <div class="qs"><span class="qs-l">معدل الإكمال</span><span class="qs-v">${custs.length ? Math.round(totalRewards / custs.length * 100) : 0}%</span></div>
-      <div class="qs"><span class="qs-l">نسبة النشاط</span><span class="qs-v">${custs.length ? Math.round(activeCusts.length / custs.length * 100) : 0}%</span></div>
-      <div class="qs"><span class="qs-l">ذهبيين 👑</span><span class="qs-v">${custs.filter(c => getTier(c).name === 'ذهبي').length}</span></div>
-      <div class="qs"><span class="qs-l">أعياد الشهر 🎂</span><span class="qs-v">${bdMonth.length}</span></div>
-      <div class="qs"><span class="qs-l">الرسائل</span><span class="qs-v">${notifs.length}</span></div>
-    </div>`;
-    if (inactiveCusts.length) h += `<div class="alert alert-red"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:rgba(255,255,255,.7)">⚠️ ${inactiveCusts.length} منقطع</span><button class="btn-red" onclick="openMsgModal('inactive')">أرسل رسالة</button></div></div>`;
-    tc.innerHTML = h;
-  } else if (activeTab === 'customers') {
-    let filtered = custs.filter(c => !searchQuery || c.name.includes(searchQuery) || c.phone.includes(searchQuery));
-    let h = `<input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:12px" placeholder="🔍 بحث..." id="cust-search" value="${searchQuery}" oninput="handleCustomerSearch(this.value)">`;
-    h += filtered.map(c => {
-      const tier = getTier(c);
-      const active = isActive(c);
-      return `<div class="c-row"><div style="display:flex;align-items:center;gap:10px"><div class="r-av" style="background:${active ? 'linear-gradient(135deg,#2ECC71,#27AE60)' : 'linear-gradient(135deg,#E74C3C,#C0392B)'}">${c.name[0]}</div><div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:14px;font-weight:600">${c.name}</span><span style="font-size:10px;color:${tier.color}">${tier.icon}</span>${isBDToday(c) ? '<span>🎂</span>' : ''}</div><div style="font-size:10px;color:rgba(255,255,255,.3);display:flex;flex-wrap:wrap;gap:4px"><span dir="ltr">${c.phone}</span>${c.birthday ? '<span>| 🎂 ' + fmtBD(c.birthday) + '</span>' : ''}<span>| ${fmt(getLastVisit(c))}</span>${c.branch ? '<span>| ' + (BRANCHES[c.branch]?.icon || '') + '</span>' : ''}</div></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div class="mini-dots">${stampsArray(c.stamps).map(s => '<div class="mini-dot" style="background:' + (s ? 'var(--gold)' : 'rgba(255,255,255,.1)') + '"></div>').join('')}</div><div style="display:flex;gap:4px"><button class="sm-gold" onclick="doStamp('${c.phone}')">+ ختم</button><button class="sm-icon" onclick="sendSingleWhatsApp('${c.phone}')">💬</button><button class="sm-icon" onclick="doReset('${c.phone}')">↺</button></div></div></div>`;
-    }).join('');
-    if (!filtered.length) h += '<div class="empty"><span style="font-size:32px">📋</span><p>لا يوجد عملاء</p></div>';
-    tc.innerHTML = h;
-  } else if (activeTab === 'scan') {
-    let h = `<div class="scan-frame"><div class="scan-corner" style="top:0;right:0"></div><div class="scan-corner" style="top:0;left:0;transform:scaleX(-1)"></div><div class="scan-corner" style="bottom:0;right:0;transform:scaleY(-1)"></div><div class="scan-corner" style="bottom:0;left:0;transform:scale(-1)"></div><div class="scan-line"></div><p style="color:rgba(255,255,255,.3);font-size:13px;z-index:1">📷 وجّه الكاميرا نحو الباركود</p></div>`;
-    h += `<div class="divider"><span>أو أدخل الرقم</span></div>`;
-    h += `<div style="display:flex;gap:8px"><input style="flex:1;padding:13px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:15px;font-family:'Tajawal',sans-serif" type="tel" id="scan-input" placeholder="رقم العميل" dir="ltr"><button class="btn btn-gold btn-sm" onclick="doScan()">بحث</button></div>`;
-    h += `<div id="scan-result"></div>`;
-    tc.innerHTML = h;
-    if (scanResult) renderScanResult();
-  } else if (activeTab === 'messages') {
-    let h = `<div class="sc"><h4 class="sec-t">📨 طريقة الإرسال</h4><div style="display:flex;gap:8px"><button class="method-btn${msgMethod === 'push' ? ' on' : ''}" onclick="setMsgMethod('push')"><span style="font-size:22px">🔔</span><span style="font-size:13px;font-weight:600">إشعار جوال</span></button><button class="method-btn${msgMethod === 'whatsapp' ? ' on' : ''}" onclick="setMsgMethod('whatsapp')"><span style="font-size:22px">💬</span><span style="font-size:13px;font-weight:600">واتساب بوت</span></button></div></div>`;
-    h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${[
-      { t: 'all', i: '📢', l: 'الجميع', n: custs.length },
-      { t: 'inactive', i: '🔴', l: 'المنقطعين', n: inactiveCusts.length },
-      { t: 'birthday', i: '🎂', l: 'عيد ميلاد', n: bdWeek.length },
-      { t: 'active', i: '🟢', l: 'المتواصلين', n: activeCusts.length },
-    ].map(m => `<button class="m-action" onclick="openMsgModal('${m.t}')"><span style="font-size:24px">${m.i}</span><span style="font-size:13px;font-weight:600;color:#fff">${m.l}</span><span style="font-size:11px;color:rgba(255,255,255,.3)">${m.n} عميل</span></button>`).join('')}</div>`;
-    h += `<button class="btn btn-dark" style="margin-bottom:12px" onclick="openMsgModal('selected')">✉️ رسالة مخصصة</button>`;
-    h += `<div class="sc"><h4 class="sec-t">🔔 إشعار سريع لعميل</h4><input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:8px" type="tel" placeholder="رقم العميل" id="q-phone" dir="ltr"><input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:8px" placeholder="نص الرسالة" id="q-msg"><button class="btn btn-gold" onclick="quickSend()">📤 إرسال</button></div>`;
-    h += `<div class="sc"><h4 class="sec-t">📝 قوالب</h4>${[
-      { t: 'ترحيب', m: 'مرحباً {name}! 🎉 اجمع ٤ أختام!' },
-      { t: 'تذكير', m: '{name}، عندك {stamps} أختام! زورنا!' },
-      { t: 'عيد ميلاد', m: '🎂 كل عام وأنت بخير {name}!' },
-      { t: 'عرض', m: '🔥 عرض حصري لك {name}!' },
-      { t: 'استعادة', m: 'اشتقنا لك {name}! 💛' },
-    ].map(tp => `<button class="tmp-btn" onclick="openMsgModal('all', '${tp.m.replace(/'/g, "\\'")}')"><span style="font-size:13px;font-weight:600;color:var(--gold)">${tp.t}</span></button>`).join('')}</div>`;
-    h += `<div class="sc"><h4 class="sec-t">📜 السجل</h4>${notifs.length ? notifs.slice(0, 15).map(n => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:18px;width:28px;text-align:center">${n.type === 'reward' ? '🎁' : n.type === 'stamp' ? '✦' : n.type === 'visit' ? '👋' : '📢'}</span><div style="flex:1"><p style="font-size:13px;color:rgba(255,255,255,.6)">${n.target_label || n.to_name || n.phone || 'رسالة'}</p><p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:2px">${fmt(n.date)} ${fmtT(n.date)}</p></div></div>`).join('') : '<p style="text-align:center;color:rgba(255,255,255,.25);padding:20px">لا توجد رسائل</p>'}</div>`;
-    tc.innerHTML = h;
-  } else if (activeTab === 'team') {
-    const emps = employeesCache.slice();
-    let h = `<div class="sc"><h4 class="sec-t">🧑‍💼 إضافة موظف</h4><div class="field"><label>الاسم</label><input id="new-emp-name" placeholder="اسم الموظف"></div><div class="field"><label>رمز الدخول</label><input type="password" id="new-emp-pin" placeholder="رمز من 4 أرقام" dir="ltr" maxlength="6"></div><div class="field"><label>الفرع</label><div style="display:flex;gap:6px;flex-wrap:wrap" id="emp-branch-select">${Object.entries(BRANCHES).map(([id, b], i) => `<button class="branch-chip" onclick="selectEmpBranch('${id}', this)" style="${i===0?'background:'+b.color+'30;border-color:'+b.color+';color:'+b.color:''}">${b.icon} ${b.name}</button>`).join('')}<input type="hidden" id="new-emp-branch" value="riyadh"></div></div><button class="btn btn-gold" onclick="addEmployee()">➕ إضافة موظف</button></div>`;
-    h += `<div class="sc"><h4 class="sec-t">👥 الموظفين (${emps.length})</h4>${emps.length ? emps.map(e => `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)"><div style="width:36px;height:36px;border-radius:50%;background:${BRANCHES[e.branch]?.color || 'var(--gold)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff">${e.name[0]}</div><div style="flex:1"><p style="font-size:14px;font-weight:600">${e.name}</p><p style="font-size:11px;color:rgba(255,255,255,.3)">${BRANCHES[e.branch]?.icon || ''} ${BRANCHES[e.branch]?.name || ''} | مسح + ختم</p></div><button class="btn-red" onclick="delEmployee('${e.id}')">حذف</button></div>`).join('') : '<p style="text-align:center;color:rgba(255,255,255,.25);padding:20px">لا يوجد موظفين</p>'}</div>`;
-    h += `<div class="sc"><h4 class="sec-t">🏢 الفروع</h4>${Object.entries(BRANCHES).map(([id, b]) => { const bc = allG.filter(c => (c.branch || 'riyadh') === id); const be = emps.filter(e => e.branch === id); return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:24px">${b.icon}</span><div style="flex:1"><p style="font-size:14px;font-weight:600;color:${b.color}">${b.name}</p><p style="font-size:11px;color:rgba(255,255,255,.3)">${bc.length} عميل | ${be.length} موظف</p></div></div>`; }).join('')}</div>`;
-    tc.innerHTML = h;
-  } else if (activeTab === 'settings') {
-    let h = `<div class="sc"><h4 class="sec-t">⚙️ إعدادات المتجر</h4><div class="field"><label>اسم المتجر</label><input id="shop-name-input" value="${shopName}"></div><button class="btn btn-gold" onclick="saveSettings()">حفظ</button></div>`;
-    h += `<div class="sc"><h4 class="sec-t">💬 واتساب بوت (UltraMsg)</h4><div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:20px">🤖</span><div style="flex:1"><p style="font-size:14px;font-weight:600">واتساب بوت تلقائي</p><p style="font-size:11px;color:rgba(255,255,255,.35)">Instance: ${WA_API.instanceId}</p></div><span style="font-size:11px;color:#25D366;font-weight:700">✓ متصل</span></div><div style="padding:8px 0;font-size:12px;color:rgba(255,255,255,.35)"><p>• ختم جديد → واتساب فوري</p><p>• هدية → تهنئة فورية</p><p>• رسائل جماعية تلقائية</p></div></div>`;
-    h += `<div class="sc"><h4 class="sec-t">💡 الميزات</h4>${[
-      { i: '✦', t: 'نظام الأختام', d: '٤+١ + إعادة تلقائية' },
-      { i: '🤖', t: 'واتساب بوت', d: 'UltraMsg API' },
-      { i: '🏢', t: 'نظام الفروع', d: 'الرياض / الدمام / ترك' },
-      { i: '🧑‍💼', t: 'إدارة الموظفين', d: 'صلاحيات محدودة' },
-      { i: '📱', t: 'المحفظة الرقمية', d: 'Apple + Google Wallet' },
-      { i: '🔔', t: 'إشعارات الجوال', d: 'Push Notifications' },
-      { i: '🎂', t: 'أعياد الميلاد', d: 'تهنئة تلقائية' },
-      { i: '👑', t: 'مستويات VIP', d: 'برونزي ← فضي ← ذهبي' },
-    ].map(f => `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:20px;width:32px;text-align:center">${f.i}</span><div style="flex:1"><p style="font-size:14px;font-weight:600">${f.t}</p><p style="font-size:11px;color:rgba(255,255,255,.35)">${f.d}</p></div><span style="font-size:11px;color:var(--grn)">✓</span></div>`).join('')}</div>`;
-    tc.innerHTML = h;
+    return [false,false,false,false,false];
   }
-}
-window.renderTab = renderTab;
 
-// ============ ACTIONS ============
-function handleCustomerSearch(v) { searchQuery = v.trim(); renderTab(); }
-async function sendSingleWhatsApp(phone) {
-  const c = customersCache.find(x => x.phone === phone);
-  if (!c) return;
-  await sendWA(c.phone, `مرحباً ${c.name}! 👋`);
-}
-window.handleCustomerSearch = handleCustomerSearch;
-window.sendSingleWhatsApp = sendSingleWhatsApp;
-
-async function doScan() {
-  const phone = sanitizePhone($('scan-input').value.trim());
-  const c = customersCache.find(x => x.phone === phone);
-  if (!c) { toast('غير موجود', 'error'); return; }
-  scanResult = c;
-  await sendWelcomeNotif(scanResult);
-  renderScanResult();
-}
-function renderScanResult() {
-  if (!scanResult) return;
-  const c = customersCache.find(x => x.phone === scanResult.phone) || scanResult;
-  const tier = getTier(c);
-  const el = $('scan-result');
-  if (!el) return;
-  el.innerHTML = `<div class="scan-card"><div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#C49B30);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:var(--dk2)">${c.name[0]}</div><div style="flex:1"><h3 style="font-size:17px;font-weight:700">${c.name}</h3><p style="font-size:12px;color:rgba(255,255,255,.4);direction:ltr;text-align:right">${c.phone}</p>${c.birthday ? '<p style="font-size:11px;color:rgba(255,255,255,.3)">🎂 ' + fmtBD(c.birthday) + '</p>' : ''}</div><div style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;border:1px solid ${tier.color};font-size:10px;color:${tier.color}">${tier.icon} ${tier.name}</div></div><div class="scan-dots">${stampsArray(c.stamps).map((s, i) => '<div class="scan-dot" style="background:' + (s ? (i === 4 ? 'linear-gradient(135deg,#FFD700,var(--gold))' : 'linear-gradient(135deg,var(--gold),#C49B30)') : 'rgba(255,255,255,.06)') + ';border:' + (s ? '2px solid var(--gold)' : i === 4 ? '2px dashed rgba(212,175,55,.4)' : '2px dashed rgba(255,255,255,.12)') + ';box-shadow:' + (s ? '0 2px 12px rgba(212,175,55,.3)' : 'none') + '">' + (s ? (i === 4 ? '🎁' : '✓') : (i === 4 ? '★' : (i + 1))) + '</div>').join('')}</div><div style="display:flex;gap:8px"><button class="btn btn-gold" style="flex:1" onclick="doStamp('${c.phone}')">✦ إضافة ختم</button><button class="btn btn-dark btn-sm" onclick="doReset('${c.phone}')">↺</button></div></div>`;
-}
-async function sendWelcomeNotif(c) {
-  const stamps = stampsCount(c.stamps);
-  const tier = getTier(c);
-  let title, body;
-  if (isBDToday(c)) { title = '🎂 أهلاً ' + c.name + '! عيد ميلاد سعيد!'; body = 'هديتك بانتظارك في ' + shopName + ' 🎁🎉'; }
-  else if (stamps === 4) { title = '🎁 أهلاً ' + c.name + '!'; body = 'ختم واحد للهدية المجانية! ✦'; }
-  else if (stamps === 0) { title = '👋 أهلاً ' + c.name + '!'; body = 'نورت ' + shopName + '! اجمع أختامك 🎁'; }
-  else { title = '✦ أهلاً ' + c.name + '!'; body = 'نورت! عندك ' + stamps + ' أختام ' + tier.icon; }
-  sendPushNotif(title, body);
-  await insertNotification({ phone: c.phone, type: 'visit', title, body, to_name: c.name, target_label: 'زيارة - ' + c.name, date: nowIso() });
-}
-window.doScan = doScan;
-
-async function doStamp(phone) {
-  try {
-    const c = customersCache.find(x => x.phone === phone);
-    if (!c) return;
-    const stamps = stampsArray(c.stamps);
-    const ni = stamps.findIndex(s => !s);
-    if (ni === -1) { toast('البطاقة مكتملة!', 'error'); return; }
-    stamps[ni] = true;
-    const history = Array.isArray(c.history) ? [...c.history] : [];
-    const by = currentEmp ? currentEmp.name : 'المشرف';
-    history.push({ action: 'stamp', date: nowIso(), index: ni, by, branch: currentBranch });
-
-    let totalRewards = Number(c.total_rewards || 0);
-    let msg = `تمت إضافة ختم جديد. أصبح لديك ${stamps.filter(Boolean).length}/5`;
-    if (ni === 4) {
-      totalRewards += 1;
-      history.push({ action: 'reward', date: nowIso(), by, branch: currentBranch });
-      msg = '🎁 مبروك! حصلت على الطلب المجاني';
-    }
-
-    await updateCustomer(phone, {
-      stamps,
-      total_rewards: totalRewards,
-      visits_count: Number(c.visits_count || 0) + 1,
-      history
-    });
-    await insertNotification({ phone, type: ni === 4 ? 'reward' : 'stamp', title: ni === 4 ? '🎁 مبروك! هديتك جاهزة' : '✦ تم إضافة ختم جديد', body: msg, to_name: c.name, target_label: c.name, date: nowIso() });
-
-    if (msgMethod === 'whatsapp') await sendWA(c.phone, msg);
-    if (ni === 4) {
-      $('reward-name').textContent = c.name + ' حصل على الطلب المجاني!';
-      $('reward-modal').classList.add('active');
-      setTimeout(async () => {
-        const fresh = customersCache.find(x => x.phone === phone);
-        const freshHistory = Array.isArray(fresh?.history) ? [...fresh.history] : history;
-        freshHistory.push({ action: 'auto-reset', date: nowIso(), by, branch: currentBranch });
-        await updateCustomer(phone, { stamps: [false,false,false,false,false], history: freshHistory });
-      }, 2000);
-    }
-    await refreshAll();
-    scanResult = customersCache.find(x => x.phone === phone) || scanResult;
-    renderScanResult();
-    renderTab();
-    toast('تم إضافة ختم لـ ' + c.name + ' ✓');
-  } catch (e) {
-    console.error(e);
-    toast('فشل إضافة الختم', 'error');
+  function setMode(newMode){
+    mode = newMode;
+    document.getElementById('adminLogin').classList.toggle('hidden', newMode !== 'admin');
+    document.getElementById('empLogin').classList.toggle('hidden', newMode !== 'emp');
+    document.getElementById('adminTabBtn').className = newMode === 'admin' ? 'btn-gold tab' : 'btn-dark tab';
+    document.getElementById('empTabBtn').className = newMode === 'emp' ? 'btn-green tab' : 'btn-dark tab';
+    clearMsg();
   }
-}
-async function doReset(phone) {
-  try {
-    const c = customersCache.find(x => x.phone === phone);
-    if (!c) return;
-    const history = Array.isArray(c.history) ? [...c.history] : [];
-    history.push({ action: 'reset', date: nowIso(), by: currentEmp ? currentEmp.name : 'المشرف', branch: currentBranch });
-    await updateCustomer(phone, { stamps: [false,false,false,false,false], history });
-    await insertNotification({ phone, type: 'reward', title: '↺ تم إعادة التعيين', body: 'تم تصفير البطاقة وبدء دورة جديدة', to_name: c.name, target_label: c.name, date: nowIso() });
-    await refreshAll();
-    scanResult = customersCache.find(x => x.phone === phone) || scanResult;
-    renderScanResult();
-    renderTab();
-    toast('تم إعادة التعيين');
-  } catch (e) {
-    console.error(e);
-    toast('فشل إعادة التعيين', 'error');
-  }
-}
-function closeReward() { $('reward-modal').classList.remove('active'); }
-window.doStamp = doStamp;
-window.doReset = doReset;
-window.closeReward = closeReward;
 
-// ============ CUSTOMERS ============
-function goAddCustomer() {
-  $('add-name').value = '';
-  $('add-phone').value = '';
-  $('add-birthday').value = '';
-  $('add-branch-chips').innerHTML = Object.entries(BRANCHES).map(([id, b]) =>
-    `<button class="branch-chip" onclick="selectAddBranch('${id}', this)" data-branch="${id}" style="${currentBranch === id ? 'background:' + b.color + '30;border-color:' + b.color + ';color:' + b.color : ''}">${b.icon} ${b.name}</button>`
-  ).join('');
-  go('add');
-}
-function selectAddBranch(id, btn) {
-  document.querySelectorAll('#add-branch-chips .branch-chip').forEach(x => x.style = '');
-  const b = BRANCHES[id];
-  btn.style = `background:${b.color}30;border-color:${b.color};color:${b.color}`;
-  btn.dataset.branch = id;
-}
-async function addCustomer() {
-  const name = $('add-name').value.trim();
-  const phone = sanitizePhone($('add-phone').value.trim());
-  const bd = $('add-birthday').value || null;
-  const branchEl = document.querySelector('#add-branch-chips .branch-chip[style*="background"]');
-  const branch = branchEl ? branchEl.dataset.branch : (currentBranch || 'riyadh');
-  if (!name || !phone) { toast('أدخل البيانات', 'error'); return; }
-  try {
-    const payload = {
-      phone, name, birthday: bd, branch,
-      stamps: [false,false,false,false,false],
-      total_rewards: 0,
-      referral_code: generateReferralCode(phone),
-      notifications_enabled: false,
-      visits_count: 0,
-      history: [],
-      updated_at: nowIso()
+  function logout(){
+    isAdmin = false;
+    currentEmployee = null;
+    document.getElementById('loginPage').classList.remove('hidden');
+    document.getElementById('panelPage').classList.add('hidden');
+    clearMsg();
+  }
+
+  function enterPanel(){
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('panelPage').classList.remove('hidden');
+    document.getElementById('employeesBox').classList.toggle('hidden', !isAdmin);
+    document.getElementById('sessionInfo').textContent = isAdmin
+      ? 'مسجل كمشرف'
+      : `مسجل كموظف: ${currentEmployee.name} - ${branchLabel(currentEmployee.branch)}`;
+    loadCustomers();
+  }
+
+  function branchLabel(branch){
+    const map = {
+      riyadh:'فرع الرياض',
+      dammam:'فرع الدمام',
+      truck_riyadh:'ترك الرياض'
     };
-    const { error } = await supabase.from('customers').insert(payload);
-    if (error) throw error;
-    toast('تم إضافة ' + name + ' ✓');
-    await refreshAll();
-    go('panel');
-    renderTab();
-  } catch (e) {
-    console.error(e);
-    toast('الرقم مسجل أو حدث خطأ', 'error');
+    return map[branch] || branch || '-';
   }
-}
-window.goAddCustomer = goAddCustomer;
-window.selectAddBranch = selectAddBranch;
-window.addCustomer = addCustomer;
 
-// ============ EMPLOYEES ============
-function selectEmpBranch(id, btn) {
-  document.querySelectorAll('#emp-branch-select .branch-chip').forEach(x => x.style = '');
-  const b = BRANCHES[id];
-  btn.style = `background:${b.color}30;border-color:${b.color};color:${b.color}`;
-  $('new-emp-branch').value = id;
-}
-async function addEmployee() {
-  const name = $('new-emp-name').value.trim();
-  const pin = $('new-emp-pin').value;
-  const branch = $('new-emp-branch').value || 'riyadh';
-  if (!name || !pin) { toast('أدخل البيانات', 'error'); return; }
-  try {
-    const id = 'emp_' + Date.now();
-    const { error } = await supabase.from('employees').insert({ id, name, pin, branch, role: 'employee' });
-    if (error) throw error;
-    toast('تم إضافة ' + name + ' ✓');
-    await refreshAll();
-    renderTab();
-  } catch (e) {
-    console.error(e);
-    toast('فشل إضافة الموظف', 'error');
+  // ===== Login =====
+  function loginAdmin(){
+    const pin = document.getElementById('adminPin').value.trim();
+    if (pin !== '1234') {
+      showMsg('رمز المشرف غير صحيح', 'err');
+      return;
+    }
+    isAdmin = true;
+    currentEmployee = null;
+    enterPanel();
   }
-}
-async function delEmployee(id) {
-  try {
-    const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) throw error;
-    toast('تم الحذف');
-    await refreshAll();
-    renderTab();
-  } catch (e) {
-    console.error(e);
-    toast('فشل الحذف', 'error');
-  }
-}
-window.selectEmpBranch = selectEmpBranch;
-window.addEmployee = addEmployee;
-window.delEmployee = delEmployee;
 
-// ============ MESSAGES ============
-function setMsgMethod(method) { msgMethod = method; renderTab(); }
-function getMessageTargets(target) {
-  const custs = getBranchCusts(currentBranch);
-  if (target === 'inactive') return custs.filter(c => !isActive(c));
-  if (target === 'birthday') return custs.filter(isBDWeek);
-  if (target === 'active') return custs.filter(isActive);
-  if (target === 'selected') return custs;
-  return custs;
-}
-function applyTemplate(template, c) {
-  return String(template || '')
-    .replaceAll('{name}', c.name || '')
-    .replaceAll('{stamps}', String(stampsCount(c.stamps)))
-    .replaceAll('{branch}', BRANCHES[c.branch || 'riyadh']?.name || '');
-}
-function closeMsgModal() { $('msg-modal').classList.remove('active'); }
-function openMsgModal(target='all', preset='') {
-  selectedModalTarget = target;
-  selectedTemplate = preset || '';
-  const list = getMessageTargets(target);
-  $('msg-modal-content').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <h3 style="font-size:18px;font-weight:700;color:var(--gold);font-family:'Noto Kufi Arabic',sans-serif">💬 إرسال رسالة</h3>
-      <button class="modal-close" onclick="closeMsgModal()">✕</button>
-    </div>
-    <div class="push-preview">
-      <div style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:4px">${msgMethod === 'push' ? 'إشعار جوال' : 'واتساب'}</div>
-      <div style="font-size:15px;font-weight:700;color:#fff">${target === 'all' ? 'الجميع' : target === 'inactive' ? 'المنقطعين' : target === 'birthday' ? 'أعياد الميلاد' : target === 'active' ? 'المتواصلين' : 'رسالة مخصصة'}</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:4px">${list.length} عميل</div>
-    </div>
-    <div class="field"><label>العنوان</label><input id="msg-title" value="${target === 'birthday' ? '🎂 تهنئة خاصة' : '✦ رسالة من المتجر'}"></div>
-    <div class="field"><label>نص الرسالة</label><textarea id="msg-body" rows="5" placeholder="اكتب الرسالة">${selectedTemplate}</textarea></div>
-    <button class="btn btn-gold" onclick="sendModalMessage()">إرسال الآن</button>
-  `;
-  $('msg-modal').classList.add('active');
-}
-async function sendModalMessage() {
-  const title = $('msg-title').value.trim() || 'رسالة';
-  const body = $('msg-body').value.trim();
-  if (!body) { toast('اكتب الرسالة', 'error'); return; }
-  const targets = getMessageTargets(selectedModalTarget);
-  if (!targets.length) { toast('لا يوجد مستلمين', 'error'); return; }
-  let sent = 0;
-  for (const c of targets) {
-    const personalized = applyTemplate(body, c);
-    if (msgMethod === 'whatsapp') await sendWA(c.phone, personalized);
-    await insertNotification({ phone: c.phone, type: 'custom', title, body: personalized, to_name: c.name, target_label: selectedModalTarget, date: nowIso() });
-    sent += 1;
-  }
-  toast(`تم الإرسال إلى ${sent} عميل`);
-  closeMsgModal();
-  await refreshAll();
-  renderTab();
-}
-async function quickSend() {
-  const phone = sanitizePhone($('q-phone').value.trim());
-  const body = $('q-msg').value.trim();
-  const c = customersCache.find(x => x.phone === phone);
-  if (!c || !body) { toast('أدخل الرقم والرسالة', 'error'); return; }
-  if (msgMethod === 'whatsapp') await sendWA(c.phone, body);
-  await insertNotification({ phone, type: 'custom', title: '✦ رسالة خاصة', body, to_name: c.name, target_label: c.name, date: nowIso() });
-  toast('تم الإرسال ✓');
-  $('q-msg').value = '';
-  await refreshAll();
-  renderTab();
-}
-window.setMsgMethod = setMsgMethod;
-window.openMsgModal = openMsgModal;
-window.closeMsgModal = closeMsgModal;
-window.sendModalMessage = sendModalMessage;
-window.quickSend = quickSend;
+  async function loginEmployee(){
+    const name = document.getElementById('empName').value.trim();
+    const pin = document.getElementById('empPin').value.trim();
 
-// ============ SETTINGS ============
-async function saveSettings() {
-  const name = $('shop-name-input').value.trim();
-  if (!name) return;
-  try {
-    await saveShopName(name);
-    shopName = name;
-    $('panel-title').textContent = shopName;
-    toast('تم الحفظ ✓');
-  } catch (e) {
-    console.error(e);
-    toast('فشل الحفظ', 'error');
-  }
-}
-window.saveSettings = saveSettings;
+    if (!name || !pin) {
+      showMsg('اكتب اسم الموظف والرمز', 'err');
+      return;
+    }
 
-// ============ START ============
-bindRealtime();
-refreshAll();
-if ('Notification' in window && Notification.permission === 'default') {
-  Notification.requestPermission().catch(() => {});
-}
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('name', name)
+      .eq('pin', pin)
+      .limit(1);
+
+    if (error) {
+      showMsg('مشكلة في قراءة جدول الموظفين: ' + error.message, 'err');
+      return;
+    }
+
+    if (!data || !data.length) {
+      showMsg('بيانات الموظف غير صحيحة أو الموظف غير موجود', 'err');
+      return;
+    }
+
+    isAdmin = false;
+    currentEmployee = data[0];
+    enterPanel();
+  }
+
+  // ===== Customers =====
+  async function loadCustomers(){
+    let query = supabase.from('customers').select('*').order('created_at', { ascending: false });
+
+    if (!isAdmin && currentEmployee?.branch) {
+      query = query.eq('branch', currentEmployee.branch);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      alert('خطأ في تحميل العملاء: ' + error.message);
+      return;
+    }
+
+    customers = data || [];
+    renderCustomers();
+  }
+
+  function renderCustomers(){
+    const q = (document.getElementById('searchInput')?.value || '').trim();
+    const list = document.getElementById('customersList');
+
+    const filtered = customers.filter(c =>
+      (c.name || '').includes(q) || (c.phone || '').includes(q)
+    );
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="muted">لا يوجد عملاء</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map(c => {
+      const stamps = normalizeStamps(c.stamps);
+      const done = stamps.filter(Boolean).length;
+      return `
+        <div class="customer">
+          <div class="customer-top">
+            <div>
+              <div style="font-size:18px;font-weight:700">${c.name || '-'}</div>
+              <div class="small">${c.phone || '-'} | ${branchLabel(c.branch)}</div>
+            </div>
+            <div class="badge">${done}/5 أختام</div>
+          </div>
+
+          <div class="stamps">
+            ${stamps.map((s,i) => `<div class="stamp ${s ? 'on':''}">${s ? '✓' : i+1}</div>`).join('')}
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <div class="col"><button class="btn-gold" onclick="addStamp('${c.phone}')">+ إضافة ختم</button></div>
+            <div class="col"><button class="btn-dark" onclick="resetCard('${c.phone}')">تصفير البطاقة</button></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function addCustomer(){
+    const name = document.getElementById('newName').value.trim();
+    const phone = document.getElementById('newPhone').value.trim();
+    const birthday = document.getElementById('newBirthday').value || null;
+    const branch = isAdmin ? document.getElementById('newBranch').value : (currentEmployee?.branch || 'riyadh');
+
+    if (!name || !phone) {
+      alert('اكتب الاسم ورقم الهاتف');
+      return;
+    }
+
+    const payload = {
+      name,
+      phone,
+      birthday,
+      branch,
+      stamps: [false,false,false,false,false],
+      total_rewards: 0
+    };
+
+    const { error } = await supabase.from('customers').insert([payload]);
+
+    if (error) {
+      alert('فشل إضافة العميل: ' + error.message);
+      return;
+    }
+
+    document.getElementById('newName').value = '';
+    document.getElementById('newPhone').value = '';
+    document.getElementById('newBirthday').value = '';
+    alert('تم إضافة العميل');
+    loadCustomers();
+  }
+
+  async function addStamp(phone){
+    const customer = customers.find(c => c.phone === phone);
+    if (!customer) return;
+
+    let stamps = normalizeStamps(customer.stamps);
+    const idx = stamps.findIndex(x => !x);
+
+    if (idx === -1) {
+      alert('البطاقة مكتملة بالفعل');
+      return;
+    }
+
+    stamps[idx] = true;
+
+    let totalRewards = Number(customer.total_rewards || 0);
+    if (idx === 4) totalRewards += 1;
+
+    const { error } = await supabase
+      .from('customers')
+      .update({
+        stamps,
+        total_rewards: totalRewards
+      })
+      .eq('phone', phone);
+
+    if (error) {
+      alert('فشل إضافة الختم: ' + error.message);
+      return;
+    }
+
+    alert(idx === 4 ? 'تمت إضافة الختم الأخير وحُسبت هدية 🎉' : 'تمت إضافة ختم');
+    loadCustomers();
+  }
+
+  async function resetCard(phone){
+    const { error } = await supabase
+      .from('customers')
+      .update({
+        stamps: [false,false,false,false,false]
+      })
+      .eq('phone', phone);
+
+    if (error) {
+      alert('فشل تصفير البطاقة: ' + error.message);
+      return;
+    }
+
+    alert('تم تصفير البطاقة');
+    loadCustomers();
+  }
+
+  // ===== Employees =====
+  async function addEmployee(){
+    if (!isAdmin) return;
+
+    const name = document.getElementById('addEmpName').value.trim();
+    const pin = document.getElementById('addEmpPin').value.trim();
+    const branch = document.getElementById('addEmpBranch').value;
+
+    if (!name || !pin) {
+      alert('اكتب اسم الموظف والرمز');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('employees')
+      .insert([{ name, pin, branch }]);
+
+    if (error) {
+      alert('فشل إضافة الموظف: ' + error.message);
+      return;
+    }
+
+    document.getElementById('addEmpName').value = '';
+    document.getElementById('addEmpPin').value = '';
+    alert('تم إضافة الموظف');
+  }
+
+  // ===== Start =====
+  setMode('admin');
 </script>
-
 </body>
 </html>
