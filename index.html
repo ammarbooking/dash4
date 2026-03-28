@@ -66,7 +66,6 @@
     .chip{padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:11px;font-family:'Tajawal',sans-serif;cursor:pointer;white-space:nowrap}
     .chip.on{background:rgba(212,175,55,.2);border-color:rgba(212,175,55,.4);color:var(--gold)}
     .branch-chip{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:12px;font-family:'Tajawal',sans-serif;cursor:pointer}
-    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
 
     .qs{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
     .qs-l{font-size:13px;color:rgba(255,255,255,.5)}
@@ -102,8 +101,6 @@
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
     #reader{width:100%;max-width:320px;overflow:hidden;border-radius:18px}
     #reader video{border-radius:18px}
-    ::-webkit-scrollbar{width:4px}
-    ::-webkit-scrollbar-thumb{background:rgba(212,175,55,.2);border-radius:4px}
   </style>
 </head>
 <body>
@@ -201,9 +198,6 @@ function go(page){
   const el = document.getElementById('page-' + page);
   if (el) {
     el.classList.add('active');
-    el.style.animation = 'none';
-    el.offsetHeight;
-    el.style.animation = 'slideUp .4s ease';
   }
 }
 
@@ -242,26 +236,17 @@ function normalizeCustomer(c){
 
 function normalizePhone(phone){
   if (!phone) return '';
-
   let p = String(phone).trim();
   const arNums = '٠١٢٣٤٥٦٧٨٩';
   p = p.replace(/[٠-٩]/g, d => arNums.indexOf(d));
   p = p.replace(/\D/g, '');
-
-  if (p.startsWith('966')) {
-    p = '0' + p.slice(3);
-  }
-
-  if (p.startsWith('5') && p.length === 9) {
-    p = '0' + p;
-  }
-
+  if (p.startsWith('966')) p = '0' + p.slice(3);
+  if (p.startsWith('5') && p.length === 9) p = '0' + p;
   return p;
 }
 
 async function findCustomerByPhone(phone){
   const normalized = normalizePhone(phone);
-
   const variants = [...new Set([
     normalized,
     normalized.replace(/^0/, '966'),
@@ -269,14 +254,8 @@ async function findCustomerByPhone(phone){
     '+' + normalized.replace(/^0/, '966')
   ])].filter(Boolean);
 
-  const { data, error } = await db
-    .from('customers')
-    .select('*')
-    .in('phone', variants)
-    .limit(1);
-
+  const { data, error } = await db.from('customers').select('*').in('phone', variants).limit(1);
   if (error) throw error;
-
   return data && data.length ? normalizeCustomer(data[0]) : null;
 }
 
@@ -285,35 +264,28 @@ function isBDToday(c){
   const t = new Date(), b = new Date(c.birthday);
   return b.getMonth() === t.getMonth() && b.getDate() === t.getDate();
 }
-
 function isBDWeek(c){
   if (!c.birthday) return false;
   const t = new Date(), b = new Date(c.birthday);
   for (let i = 0; i < 7; i++) {
-    const d = new Date(t);
-    d.setDate(d.getDate() + i);
+    const d = new Date(t); d.setDate(d.getDate() + i);
     if (b.getMonth() === d.getMonth() && b.getDate() === d.getDate()) return true;
   }
   return false;
 }
-
 function isBDMonth(c){
   if (!c.birthday) return false;
   return new Date(c.birthday).getMonth() === new Date().getMonth();
 }
 
 async function saveNotif(type, to_user, message, count = 1){
-  try {
-    await db.from('loyalty_notifications').insert([{ type, to_user, message, count }]);
-  } catch(e) {
-    console.error('saveNotif error', e);
-  }
+  try { await db.from('loyalty_notifications').insert([{ type, to_user, message, count }]); }
+  catch(e) { console.error('saveNotif error', e); }
 }
 
 async function loadAppSettings(){
   try {
-    const { data, error } = await db.from('app_settings').select('*').eq('id', 1).single();
-    if (error) return;
+    const { data } = await db.from('app_settings').select('*').eq('id', 1).single();
     if (data) {
       appSettings = {
         whatsapp_enabled: data.whatsapp_enabled ?? true,
@@ -321,43 +293,31 @@ async function loadAppSettings(){
         whatsapp_endpoint: data.whatsapp_endpoint || ''
       };
     }
-  } catch (e) {
-    console.error('loadAppSettings error', e);
-  }
+  } catch(e) {}
 }
 
 async function saveWASettings(){
   try {
-    const whatsapp_enabled = document.getElementById('wa-enabled').checked;
-    const whatsapp_method = document.getElementById('wa-method').value;
-    const whatsapp_endpoint = document.getElementById('wa-endpoint').value.trim();
-
     const payload = {
       id: 1,
-      whatsapp_enabled,
-      whatsapp_method,
-      whatsapp_endpoint,
+      whatsapp_enabled: document.getElementById('wa-enabled').checked,
+      whatsapp_method: document.getElementById('wa-method').value,
+      whatsapp_endpoint: document.getElementById('wa-endpoint').value.trim(),
       updated_at: new Date().toISOString()
     };
-
     const { error } = await db.from('app_settings').upsert(payload);
     if (error) throw error;
-
     appSettings = payload;
     toast('تم حفظ إعدادات واتساب ✓');
     await renderTab();
-  } catch (e) {
-    console.error(e);
+  } catch(e) {
     toast('فشل حفظ إعدادات واتساب', 'error');
   }
 }
 
 async function testWA(){
   const samplePhone = document.getElementById('wa-test-phone')?.value.trim();
-  if (!samplePhone) {
-    toast('اكتب رقم للتجربة', 'error');
-    return;
-  }
+  if (!samplePhone) return toast('اكتب رقم للتجربة', 'error');
   const ok = await queueWA(samplePhone, 'رسالة تجريبية من لوحة التحكم ✨', 'settings_test');
   if (ok) toast('تم تنفيذ تجربة الإرسال ✓');
 }
@@ -371,19 +331,10 @@ async function queueWA(phone, message, source = 'manual'){
       return false;
     }
 
-    // الخيار الأفضل: Queue عبر قاعدة البيانات
     if (appSettings.whatsapp_method === 'queue') {
-      const { data: customerData } = await db
-        .from('customers')
-        .select('*')
-        .in('phone', [
-          phone,
-          phone.replace(/^0/, '966'),
-          phone.replace(/^0/, ''),
-          '+' + phone.replace(/^0/, '966')
-        ])
-        .limit(1);
-
+      const { data: customerData } = await db.from('customers').select('*').in('phone', [
+        phone, phone.replace(/^0/, '966'), phone.replace(/^0/, ''), '+' + phone.replace(/^0/, '966')
+      ]).limit(1);
       const customer = customerData?.[0] || null;
 
       const payload = {
@@ -399,12 +350,10 @@ async function queueWA(phone, message, source = 'manual'){
 
       const { error } = await db.from('outbox_messages').insert([payload]);
       if (error) throw error;
-
       toast('تمت إضافة الرسالة للطابور ✓');
       return true;
     }
 
-    // API خارجي أو Edge Function
     if (appSettings.whatsapp_method === 'api') {
       if (!appSettings.whatsapp_endpoint) {
         toast('أضف Endpoint في إعدادات واتساب', 'error');
@@ -418,52 +367,15 @@ async function queueWA(phone, message, source = 'manual'){
       });
 
       const text = await res.text();
-
-      if (!res.ok) {
-        throw new Error(text || 'فشل الإرسال عبر API');
-      }
-
-      try {
-        await db.from('outbox_messages').insert([{
-          phone,
-          customer_name: null,
-          message,
-          type: 'whatsapp',
-          status: 'sent',
-          source,
-          customer_phone: phone,
-          branch: currentBranch || null
-        }]);
-      } catch(e) {
-        console.warn('outbox log warning', e);
-      }
+      if (!res.ok) throw new Error(text || 'فشل الإرسال عبر API');
 
       toast('تم إرسال الرسالة عبر API ✓');
       return true;
     }
 
-    toast('طريقة إرسال غير معروفة', 'error');
     return false;
-
   } catch (e) {
     console.error(e);
-
-    try {
-      await db.from('outbox_messages').insert([{
-        phone: normalizePhone(phone),
-        customer_name: null,
-        message,
-        type: 'whatsapp',
-        status: 'failed',
-        source,
-        customer_phone: normalizePhone(phone),
-        branch: currentBranch || null,
-        error_message: e.message || 'Unknown error'
-      }]);
-    } catch(err) {
-      console.warn('failed log warning', err);
-    }
-
     toast('فشل إرسال/حفظ الرسالة', 'error');
     return false;
   }
@@ -492,19 +404,8 @@ async function loginAdmin(){
 async function loginEmployee(){
   const name = document.getElementById('emp-login-name').value.trim();
   const pin = document.getElementById('emp-login-pin').value.trim();
-
-  const { data, error } = await db
-    .from('employees')
-    .select('*')
-    .eq('name', name)
-    .eq('pin', pin)
-    .limit(1);
-
-  if (error || !data || !data.length) {
-    toast('بيانات خاطئة', 'error');
-    return;
-  }
-
+  const { data, error } = await db.from('employees').select('*').eq('name', name).eq('pin', pin).limit(1);
+  if (error || !data || !data.length) return toast('بيانات خاطئة', 'error');
   isAdmin = false;
   currentEmp = data[0];
   currentBranch = currentEmp.branch;
@@ -549,9 +450,7 @@ async function getNotifs(){
 
 async function getOutboxStats(){
   try {
-    const { data, error } = await db.from('outbox_messages').select('*').order('created_at', { ascending: false }).limit(50);
-    if (error) throw error;
-
+    const { data } = await db.from('outbox_messages').select('*').order('created_at', { ascending: false }).limit(50);
     const rows = data || [];
     return {
       all: rows,
@@ -559,8 +458,7 @@ async function getOutboxStats(){
       sent: rows.filter(x => x.status === 'sent').length,
       failed: rows.filter(x => x.status === 'failed').length
     };
-  } catch (e) {
-    console.error(e);
+  } catch(e) {
     return { all: [], pending: 0, sent: 0, failed: 0 };
   }
 }
@@ -580,7 +478,6 @@ async function initPanel(){
 
   const bs = document.getElementById('branch-selector');
   const bi = document.getElementById('emp-branch-info');
-
   if (isAdmin) {
     bs.style.display = 'flex';
     bi.style.display = 'none';
@@ -613,26 +510,16 @@ async function initPanel(){
   await renderTab();
 }
 
-async function setBranch(b){
-  currentBranch = b;
-  await initPanel();
-}
-
-async function switchTab(t){
-  stopQrScanner();
-  activeTab = t;
-  await initPanel();
-}
+async function setBranch(b){ currentBranch = b; await initPanel(); }
+async function switchTab(t){ stopQrScanner(); activeTab = t; await initPanel(); }
 
 function goAddCustomer(){
   document.getElementById('add-name').value = '';
   document.getElementById('add-phone').value = '';
   document.getElementById('add-birthday').value = '';
-
   document.getElementById('add-branch-chips').innerHTML = Object.entries(BRANCHES).map(([id, b]) =>
     `<button class="branch-chip" type="button" onclick="document.querySelectorAll('#add-branch-chips .branch-chip').forEach(x=>x.style='');this.style='background:${b.color}30;border-color:${b.color};color:${b.color}';this.dataset.branch='${id}'" data-branch="${id}" style="${currentBranch === id ? 'background:' + b.color + '30;border-color:' + b.color + ';color:' + b.color : ''}">${b.icon} ${b.name}</button>`
   ).join('');
-
   go('add');
 }
 
@@ -653,266 +540,249 @@ async function renderTab(){
   const outbox = await getOutboxStats();
 
   if (activeTab === 'dashboard') {
-    let h = `<div class="g4">
+    tc.innerHTML = `<div class="g4">
       <div class="stat-card" style="background:rgba(212,175,55,.1)"><span class="stat-icon">👥</span><span class="stat-num" style="color:var(--gold)">${custs.length}</span><span class="stat-label">العملاء</span></div>
       <div class="stat-card" style="background:rgba(46,204,113,.1)"><span class="stat-icon">🟢</span><span class="stat-num" style="color:var(--grn)">${activeCusts.length}</span><span class="stat-label">متواصلين</span></div>
       <div class="stat-card" style="background:rgba(231,76,60,.1)"><span class="stat-icon">🔴</span><span class="stat-num" style="color:var(--red)">${inactiveCusts.length}</span><span class="stat-label">منقطعين</span></div>
       <div class="stat-card" style="background:rgba(155,89,182,.1)"><span class="stat-icon">🎁</span><span class="stat-num" style="color:#9B59B6">${totalRewards}</span><span class="stat-label">هدايا</span></div>
-    </div>`;
-
-    if (bdToday.length) {
-      h += `<div class="alert alert-bd"><div style="margin-bottom:8px"><span style="font-size:14px;font-weight:700">🎂 أعياد ميلاد اليوم!</span></div>${bdToday.map(c => '<span class="alert-chip" style="background:rgba(255,183,77,.15);color:#FFB74D">' + c.name + ' 🎂</span>').join('')}</div>`;
-    } else if (bdWeek.length) {
-      h += `<div class="alert alert-bd"><div style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;color:var(--gold)">🎂 أعياد ميلاد هذا الأسبوع</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${bdWeek.map(c => '<span class="alert-chip" style="background:rgba(255,183,77,.15);color:#FFB74D">' + c.name + ' - ' + fmtBD(c.birthday) + '</span>').join('')}</div></div>`;
-    }
-
-    const days = [];
-    const dayMax = [0];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - 6 + i);
-      const ds = d.toISOString().slice(0, 10);
-      let cnt = 0;
-      custs.forEach(c => (c.history || []).forEach(hh => {
-        if (hh.action === 'stamp' && hh.date?.slice(0, 10) === ds) cnt++;
-      }));
-      days.push({ day: d.toLocaleDateString('ar-SA', { weekday: 'short' }), count: cnt });
-      if (cnt > dayMax[0]) dayMax[0] = cnt;
-    }
-    if (!dayMax[0]) dayMax[0] = 1;
-
-    h += `<div class="sc"><h4 class="sec-t">📈 نشاط ٧ أيام</h4><div class="chart">${days.map(d => `<div class="bar-col"><div class="bar" style="height:${(d.count / dayMax[0]) * 100}%">${d.count > 0 ? '<span class="bar-n">' + d.count + '</span>' : ''}</div><span class="bar-d">${d.day}</span></div>`).join('')}</div></div>`;
-    h += `<div class="sc"><h4 class="sec-t">⚡ ملخص</h4>
+    </div>
+    <div class="sc"><h4 class="sec-t">⚡ ملخص</h4>
       <div class="qs"><span class="qs-l">إجمالي الأختام</span><span class="qs-v">${totalStamps}</span></div>
       <div class="qs"><span class="qs-l">نسبة النشاط</span><span class="qs-v">${custs.length ? Math.round(activeCusts.length / custs.length * 100) : 0}%</span></div>
       <div class="qs"><span class="qs-l">أعياد الشهر</span><span class="qs-v">${bdMonth.length}</span></div>
       <div class="qs"><span class="qs-l">رسائل قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
     </div>`;
-    tc.innerHTML = h;
-  }
-
-  else if (activeTab === 'customers') {
+  } else if (activeTab === 'customers') {
     const currentSearch = document.getElementById('cust-search')?.value || '';
-    let h = `<input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:12px" placeholder="🔍 بحث..." id="cust-search" value="${currentSearch.replace(/"/g, '&quot;')}" oninput="renderTab()">`;
-
-    const sq = currentSearch;
-    const filtered = custs.filter(c => (c.name || '').includes(sq) || String(c.phone || '').includes(sq));
-
-    h += filtered.map(c => {
-      const tier = getTier(c);
-      const active = isActive(c);
-      return `<div class="c-row">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="r-av" style="background:${active ? 'linear-gradient(135deg,#2ECC71,#27AE60)' : 'linear-gradient(135deg,#E74C3C,#C0392B)'}">${(c.name || '?')[0]}</div>
-          <div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:14px;font-weight:600">${c.name || '-'}</span>
-              <span style="font-size:10px;color:${tier.color}">${tier.icon}</span>
-              ${isBDToday(c) ? '<span>🎂</span>' : ''}
-            </div>
-            <div style="font-size:10px;color:rgba(255,255,255,.3);display:flex;flex-wrap:wrap;gap:4px">
-              <span dir="ltr">${c.phone || ''}</span>
-              ${c.birthday ? '<span>| 🎂 ' + fmtBD(c.birthday) + '</span>' : ''}
-              <span>| ${fmt(getLastVisit(c))}</span>
-              ${c.branch ? '<span>| ' + (BRANCHES[c.branch]?.icon || '') + '</span>' : ''}
+    const filtered = custs.filter(c => (c.name || '').includes(currentSearch) || String(c.phone || '').includes(currentSearch));
+    tc.innerHTML = `<input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:12px" placeholder="🔍 بحث..." id="cust-search" value="${currentSearch.replace(/"/g, '&quot;')}" oninput="renderTab()">` +
+      filtered.map(c => {
+        const tier = getTier(c), active = isActive(c);
+        return `<div class="c-row">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="r-av" style="background:${active ? 'linear-gradient(135deg,#2ECC71,#27AE60)' : 'linear-gradient(135deg,#E74C3C,#C0392B)'}">${(c.name || '?')[0]}</div>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px"><span style="font-size:14px;font-weight:600">${c.name || '-'}</span><span style="font-size:10px;color:${tier.color}">${tier.icon}</span></div>
+              <div style="font-size:10px;color:rgba(255,255,255,.3);display:flex;flex-wrap:wrap;gap:4px"><span dir="ltr">${c.phone || ''}</span></div>
             </div>
           </div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <div class="mini-dots">${c.stamps.map(s => '<div class="mini-dot" style="background:' + (s ? 'var(--gold)' : 'rgba(255,255,255,.1)') + '"></div>').join('')}</div>
-          <div style="display:flex;gap:4px">
-            <button class="sm-gold" onclick="doStamp('${String(c.phone).replace(/'/g, "\\'")}')">+ ختم</button>
-            <button class="sm-icon" onclick="fetchCustomerByPhone('${String(c.phone).replace(/'/g, "\\'")}');activeTab='scan';initPanel()">📷</button>
-            <button class="sm-icon" onclick="doReset('${String(c.phone).replace(/'/g, "\\'")}')">↺</button>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div class="mini-dots">${c.stamps.map(s => '<div class="mini-dot" style="background:' + (s ? 'var(--gold)' : 'rgba(255,255,255,.1)') + '"></div>').join('')}</div>
+            <div style="display:flex;gap:4px">
+              <button class="sm-gold" onclick="doStamp('${String(c.phone).replace(/'/g, "\\'")}')">+ ختم</button>
+              <button class="sm-icon" onclick="fetchCustomerByPhone('${String(c.phone).replace(/'/g, "\\'")}');activeTab='scan';initPanel()">📷</button>
+            </div>
           </div>
-        </div>
-      </div>`;
-    }).join('');
-
-    if (!filtered.length) h += '<div class="empty"><span style="font-size:32px">📋</span><p>لا يوجد عملاء</p></div>';
-    tc.innerHTML = h;
-  }
-
-  else if (activeTab === 'scan') {
-    tc.innerHTML = `
-      <div class="scan-frame">
-        <div class="scan-corner" style="top:0;right:0"></div>
-        <div class="scan-corner" style="top:0;left:0;transform:scaleX(-1)"></div>
-        <div class="scan-corner" style="bottom:0;right:0;transform:scaleY(-1)"></div>
-        <div class="scan-corner" style="bottom:0;left:0;transform:scale(-1)"></div>
-        <div class="scan-line"></div>
-        <div id="reader"></div>
-      </div>
-
+        </div>`;
+      }).join('');
+  } else if (activeTab === 'scan') {
+    tc.innerHTML = `<div class="scan-frame"><div id="reader"></div></div>
       <div class="divider"><span>أو أدخل الرقم</span></div>
-
-      <div style="display:flex;gap:8px">
-        <input style="flex:1;padding:13px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:15px;font-family:'Tajawal',sans-serif" type="tel" id="scan-input" placeholder="رقم العميل" dir="ltr">
-        <button class="btn btn-gold btn-sm" onclick="doScanManual()">بحث</button>
-      </div>
-
-      <div id="scan-result"></div>
-    `;
+      <div style="display:flex;gap:8px"><input style="flex:1;padding:13px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:15px;font-family:'Tajawal',sans-serif" type="tel" id="scan-input" placeholder="رقم العميل" dir="ltr"><button class="btn btn-gold btn-sm" onclick="doScanManual()">بحث</button></div>
+      <div id="scan-result"></div>`;
     startQrScanner();
     if (scanResult) renderScanResult();
-  }
-
-  else if (activeTab === 'messages') {
-    tc.innerHTML = `
-      <div class="sc">
-        <h4 class="sec-t">📨 طريقة الإرسال</h4>
-        <div style="display:flex;gap:8px">
-          <button class="method-btn${msgMethod === 'whatsapp' ? ' on' : ''}" onclick="msgMethod='whatsapp';renderTab()">
-            <span style="font-size:22px">💬</span>
-            <span style="font-size:13px;font-weight:600">واتساب</span>
-          </button>
-          <button class="method-btn${msgMethod === 'push' ? ' on' : ''}" onclick="msgMethod='push';renderTab()">
-            <span style="font-size:22px">🔔</span>
-            <span style="font-size:13px;font-weight:600">إشعار</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="sc">
-        <h4 class="sec-t">🔔 رسالة سريعة لعميل</h4>
-        <input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:8px" type="tel" placeholder="رقم العميل" id="q-phone" dir="ltr">
-        <textarea id="q-msg" placeholder="نص الرسالة"></textarea>
-        <button class="btn btn-gold" onclick="quickSend()">📤 إرسال</button>
-      </div>
-
-      <div class="sc">
-        <h4 class="sec-t">📝 قوالب</h4>
-        <button class="tmp-btn" onclick="prefillTemplate('مرحباً {name}! 🎉 ننتظرك في {shop}')">ترحيب</button>
-        <button class="tmp-btn" onclick="prefillTemplate('{name}، عندك {stamps} أختام! زورنا اليوم')">تذكير</button>
-        <button class="tmp-btn" onclick="prefillTemplate('🎂 كل عام وأنت بخير {name}!')">عيد ميلاد</button>
-      </div>
-
-      <div class="sc">
-        <h4 class="sec-t">📬 طابور الرسائل</h4>
-        <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
-        <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
-        <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
-      </div>
-
-      <div class="sc">
-        <h4 class="sec-t">📜 السجل</h4>
-        ${notifs.length ? notifs.map(n => `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-            <span style="font-size:18px;width:28px;text-align:center">${n.type === 'reward' ? '🎁' : n.type === 'stamp' ? '✦' : n.type === 'whatsapp' ? '💬' : '📢'}</span>
-            <div style="flex:1">
-              <p style="font-size:13px;color:rgba(255,255,255,.6)">${n.to_user || ''}</p>
-              <p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:2px">${fmt(n.created_at)} ${fmtT(n.created_at)}</p>
-            </div>
-          </div>
-        `).join('') : '<p style="text-align:center;color:rgba(255,255,255,.25);padding:20px">لا توجد رسائل</p>'}
-      </div>
-    `;
-  }
-
-  else if (activeTab === 'team') {
+  } else if (activeTab === 'messages') {
+    tc.innerHTML = `<div class="sc">
+      <h4 class="sec-t">🔔 رسالة سريعة لعميل</h4>
+      <input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:8px" type="tel" placeholder="رقم العميل" id="q-phone" dir="ltr">
+      <textarea id="q-msg" placeholder="نص الرسالة"></textarea>
+      <button class="btn btn-gold" onclick="quickSend()">📤 إرسال</button>
+    </div>
+    <div class="sc"><h4 class="sec-t">📬 طابور الرسائل</h4>
+      <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
+      <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
+      <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
+    </div>`;
+  } else if (activeTab === 'team') {
     const emps = await getAllEmployees();
-    tc.innerHTML = `
-      <div class="sc">
-        <h4 class="sec-t">🧑‍💼 إضافة موظف</h4>
-        <div class="field"><label>الاسم</label><input id="new-emp-name" placeholder="اسم الموظف"></div>
-        <div class="field"><label>رمز الدخول</label><input type="password" id="new-emp-pin" placeholder="رمز من 4 أرقام" dir="ltr" maxlength="10"></div>
-        <div class="field">
-          <label>الفرع</label>
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="emp-branch-select">
-            ${Object.entries(BRANCHES).map(([id, b]) => `<button class="branch-chip" type="button" onclick="document.querySelectorAll('#emp-branch-select .branch-chip').forEach(x=>x.style='');this.style='background:${b.color}30;border-color:${b.color};color:${b.color}';document.getElementById('new-emp-branch').value='${id}'">${b.icon} ${b.name}</button>`).join('')}
-            <input type="hidden" id="new-emp-branch" value="riyadh">
-          </div>
-        </div>
-        <button class="btn btn-gold" onclick="addEmployee()">➕ إضافة موظف</button>
+    tc.innerHTML = `<div class="sc"><h4 class="sec-t">👥 الموظفين (${emps.length})</h4>${
+      emps.map(e => `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+        <div style="width:36px;height:36px;border-radius:50%;background:${BRANCHES[e.branch]?.color || 'var(--gold)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff">${(e.name || '?')[0]}</div>
+        <div style="flex:1"><p style="font-size:14px;font-weight:600">${e.name}</p></div>
+      </div>`).join('')
+    }</div>`;
+  } else if (activeTab === 'settings') {
+    tc.innerHTML = `<div class="sc">
+      <h4 class="sec-t">⚙️ إعدادات المتجر</h4>
+      <div class="field"><label>اسم المتجر</label><input id="shop-name-input" value="${shopName}"></div>
+      <button class="btn btn-gold" onclick="saveShopName()">حفظ</button>
+    </div>
+    <div class="sc">
+      <h4 class="sec-t">💬 إعدادات واتساب</h4>
+      <div class="qs"><span class="qs-l">تشغيل واتساب</span><input type="checkbox" id="wa-enabled" ${appSettings.whatsapp_enabled ? 'checked' : ''}></div>
+      <div class="field"><label>طريقة الإرسال</label>
+        <select id="wa-method">
+          <option value="queue" ${appSettings.whatsapp_method === 'queue' ? 'selected' : ''}>Supabase Queue</option>
+          <option value="api" ${appSettings.whatsapp_method === 'api' ? 'selected' : ''}>API / Edge Function</option>
+        </select>
       </div>
-
-      <div class="sc">
-        <h4 class="sec-t">👥 الموظفين (${emps.length})</h4>
-        ${emps.length ? emps.map(e => `
-          <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-            <div style="width:36px;height:36px;border-radius:50%;background:${BRANCHES[e.branch]?.color || 'var(--gold)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff">${(e.name || '?')[0]}</div>
-            <div style="flex:1">
-              <p style="font-size:14px;font-weight:600">${e.name}</p>
-              <p style="font-size:11px;color:rgba(255,255,255,.3)">${BRANCHES[e.branch]?.icon || ''} ${BRANCHES[e.branch]?.name || ''}</p>
-            </div>
-            <button class="btn-red btn-sm" onclick="delEmployee(${e.id})">حذف</button>
-          </div>
-        `).join('') : '<p style="text-align:center;color:rgba(255,255,255,.25);padding:20px">لا يوجد موظفين</p>'}
-      </div>
-    `;
+      <div class="field"><label>Endpoint</label><input id="wa-endpoint" value="${(appSettings.whatsapp_endpoint || '').replace(/"/g, '&quot;')}" placeholder="https://..."></div>
+      <div class="field"><label>رقم تجربة</label><input id="wa-test-phone" placeholder="05XXXXXXXX"></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-gold" onclick="saveWASettings()">💾 حفظ</button><button class="btn btn-dark" onclick="testWA()">🧪 تجربة</button></div>
+    </div>`;
   }
-
-  else if (activeTab === 'settings') {
-    tc.innerHTML = `
-      <div class="sc">
-        <h4 class="sec-t">⚙️ إعدادات المتجر</h4>
-        <div class="field"><label>اسم المتجر</label><input id="shop-name-input" value="${shopName}"></div>
-        <button class="btn btn-gold" onclick="saveShopName()">حفظ</button>
-      </div>
-
-      <div class="sc">
-        <h4 class="sec-t">💬 إعدادات واتساب</h4>
-
-        <div class="toggle-row">
-          <span class="qs-l">تشغيل واتساب</span>
-          <input type="checkbox" id="wa-enabled" ${appSettings.whatsapp_enabled ? 'checked' : ''} />
-        </div>
-
-        <div class="field">
-          <label>طريقة الإرسال</label>
-          <select id="wa-method">
-            <option value="queue" ${appSettings.whatsapp_method === 'queue' ? 'selected' : ''}>Supabase Queue</option>
-            <option value="api" ${appSettings.whatsapp_method === 'api' ? 'selected' : ''}>API / Edge Function</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Endpoint (في حالة API فقط)</label>
-          <input id="wa-endpoint" value="${(appSettings.whatsapp_endpoint || '').replace(/"/g, '&quot;')}" placeholder="https://your-endpoint.example.com/send" dir="ltr" />
-        </div>
-
-        <div class="field">
-          <label>رقم تجربة الإرسال</label>
-          <input id="wa-test-phone" placeholder="05XXXXXXXX" dir="ltr" />
-        </div>
-
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-gold" onclick="saveWASettings()">💾 حفظ الإعدادات</button>
-          <button class="btn btn-dark" onclick="testWA()">🧪 تجربة الإرسال</button>
-        </div>
-      </div>
-
-      <div class="sc">
-        <h4 class="sec-t">📊 حالة واتساب</h4>
-        <div class="qs"><span class="qs-l">الحالة</span><span class="qs-v">${appSettings.whatsapp_enabled ? 'مفعل' : 'متوقف'}</span></div>
-        <div class="qs"><span class="qs-l">الطريقة</span><span class="qs-v">${appSettings.whatsapp_method === 'queue' ? 'Supabase Queue' : 'API'}</span></div>
-        <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
-        <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
-        <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
-      </div>
-    `;
-  }
-}
-
-function prefillTemplate(text){
-  const msg = document.getElementById('q-msg');
-  if (msg) msg.value = text;
 }
 
 function startQrScanner(){
   const reader = document.getElementById('reader');
-  if (!reader) return;
-
+  if (!reader || typeof Html5Qrcode === 'undefined') return;
   stopQrScanner();
   html5QrScanner = new Html5Qrcode("reader");
-
   Html5Qrcode.getCameras().then(cameras => {
-    if (!cameras || !cameras.length) {
-      reader.innerHTML = '<p style="color:rgba(255,255,255,.4);text-align:center">لا توجد كاميرا متاحة</p>';
-      return;
-    }
+    if (!cameras || !cameras.length) return;
+    html5QrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 },
+      async (decodedText) => { await handleScannedCode(decodedText); try { await html5QrScanner.stop(); } catch(e) {} },
+      () => {}
+    ).catch(() => {});
+  }).catch(() => {});
+}
 
-    html5QrScanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 220 },
-      async (decodedText) => {
+function stopQrScanner(){
+  if (html5QrScanner) {
+    try { html5QrScanner.stop(); } catch(e) {}
+    try { html5QrScanner.clear(); } catch(e) {}
+    html5QrScanner = null;
+  }
+}
+
+async function handleScannedCode(decodedText){
+  const phone = normalizePhone(decodedText);
+  if (!phone) return toast('QR غير صالح', 'error');
+  const input = document.getElementById('scan-input');
+  if (input) input.value = phone;
+  await fetchCustomerByPhone(phone);
+}
+
+async function doScanManual(){
+  const phone = document.getElementById('scan-input').value.trim();
+  if (!phone) return toast('اكتب رقم العميل', 'error');
+  await fetchCustomerByPhone(phone);
+}
+
+async function fetchCustomerByPhone(phone){
+  try {
+    const customer = await findCustomerByPhone(phone);
+    if (!customer) return toast('العميل غير موجود', 'error');
+    scanResult = customer;
+    renderScanResult();
+    toast('تم العثور على العميل ✓');
+  } catch (error) {
+    toast('خطأ في البحث', 'error');
+  }
+}
+
+function renderScanResult(){
+  if (!scanResult) return;
+  const c = scanResult;
+  const stamps = normalizeStamps(c.stamps);
+  const done = stamps.filter(Boolean).length;
+  const el = document.getElementById('scan-result');
+  if (!el) return;
+  el.innerHTML = `<div class="scan-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#C49B30);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:var(--dk2)">${(c.name || '?').charAt(0)}</div>
+      <div style="flex:1"><h3 style="font-size:17px;font-weight:700">${c.name || '-'}</h3><p style="font-size:12px;color:rgba(255,255,255,.4);direction:ltr;text-align:right">${c.phone || '-'}</p></div>
+    </div>
+    <div class="scan-dots">${stamps.map((s, i) => `<div class="scan-dot" style="background:${s ? 'linear-gradient(135deg,var(--gold),#C49B30)' : 'rgba(255,255,255,.06)'};border:${s ? '2px solid var(--gold)' : '2px dashed rgba(255,255,255,.12)'};">${s ? '✓' : (i + 1)}</div>`).join('')}</div>
+    <div style="text-align:center;font-size:14px;color:var(--gold);margin-bottom:14px">${done}/5 أختام</div>
+    <div style="display:flex;gap:8px"><button class="btn btn-gold" style="flex:1" onclick="doStamp('${String(c.phone).replace(/'/g, "\\'")}')">✦ إضافة ختم</button></div>
+  </div>`;
+}
+
+async function doStamp(phone){
+  const c = await findCustomerByPhone(phone);
+  if (!c) return toast('تعذر تحميل العميل', 'error');
+
+  const normalizedPhone = normalizePhone(c.phone);
+  const stamps = normalizeStamps(c.stamps);
+  const idx = stamps.findIndex(s => !s);
+  if (idx === -1) return toast('البطاقة مكتملة!', 'error');
+
+  stamps[idx] = true;
+  let history = Array.isArray(c.history) ? c.history : [];
+  history.push({ action: 'stamp', date: new Date().toISOString(), index: idx, by: currentEmp ? currentEmp.name : 'المشرف', branch: currentBranch });
+
+  let total_rewards = Number(c.total_rewards || 0);
+  let waMessage = `مرحباً ${c.name} ✨\nتمت إضافة ختم جديد إلى بطاقتك في ${shopName}.`;
+
+  if (idx === 4) {
+    total_rewards += 1;
+    history.push({ action: 'reward', date: new Date().toISOString(), by: currentEmp ? currentEmp.name : 'المشرف', branch: currentBranch });
+    waMessage = `مبروك ${c.name} 🎉\nتم اكتمال البطاقة وحصلت على هدية مجانية من ${shopName}.`;
+    await saveNotif('reward', c.name, 'تمت إضافة هدية', 1);
+  } else {
+    await saveNotif('stamp', c.name, 'تمت إضافة ختم', 1);
+  }
+
+  const { error: updateError } = await db.from('customers').update({ stamps, history, total_rewards }).in('phone', [
+    normalizedPhone, normalizedPhone.replace(/^0/, '966'), normalizedPhone.replace(/^0/, ''), '+' + normalizedPhone.replace(/^0/, '966')
+  ]);
+  if (updateError) return toast('فشل إضافة الختم', 'error');
+
+  if (msgMethod === 'whatsapp') await queueWA(normalizedPhone, waMessage, 'stamp');
+  await fetchCustomerByPhone(normalizedPhone);
+  toast('تم إضافة ختم ✓');
+  if (activeTab === 'customers' || activeTab === 'dashboard') await renderTab();
+}
+
+async function addCustomer(){
+  const name = document.getElementById('add-name').value.trim();
+  const phone = normalizePhone(document.getElementById('add-phone').value.trim());
+  const bd = document.getElementById('add-birthday').value;
+  const branchEl = document.querySelector('#add-branch-chips .branch-chip[style*="background"]');
+  const branch = branchEl ? branchEl.dataset.branch : currentBranch;
+  if (!name || !phone) return toast('أدخل البيانات', 'error');
+  const existing = await findCustomerByPhone(phone);
+  if (existing) return toast('العميل موجود بالفعل', 'error');
+
+  const referral_code = String(phone).slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
+  const { error } = await db.from('customers').insert([{
+    name, phone, birthday: bd || null, stamps: [false,false,false,false,false],
+    total_rewards: 0, created_at: new Date().toISOString(), history: [], referral_code, branch
+  }]);
+  if (error) return toast('فشل إضافة العميل', 'error');
+  toast('تم إضافة ' + name + ' ✓');
+  go('panel');
+  await renderTab();
+}
+
+async function quickSend(){
+  const rawPhone = document.getElementById('q-phone').value.trim();
+  const msg = document.getElementById('q-msg').value.trim();
+  if (!rawPhone || !msg) return toast('اكتب رقم العميل والرسالة', 'error');
+  try {
+    const c = await findCustomerByPhone(rawPhone);
+    if (!c) return toast('العميل غير موجود', 'error');
+    const phone = normalizePhone(c.phone);
+    const body = msg.replace(/{name}/g, c.name || '').replace(/{stamps}/g, (c.stamps || []).filter(Boolean).length).replace(/{shop}/g, shopName || '');
+    const ok = await queueWA(phone, body, 'quickSend');
+    if (!ok) return;
+    await saveNotif('whatsapp', c.name, body, 1);
+    document.getElementById('q-phone').value = '';
+    document.getElementById('q-msg').value = '';
+    await renderTab();
+  } catch(e) {
+    toast('خطأ', 'error');
+  }
+}
+
+async function saveShopName(){
+  const newName = document.getElementById('shop-name-input').value.trim() || 'متجر الولاء';
+  const { data } = await db.from('shop_settings').select('*').limit(1);
+  if (data && data.length) {
+    await db.from('shop_settings').update({ shop_name: newName }).eq('id', data[0].id);
+  } else {
+    await db.from('shop_settings').insert([{ shop_name: newName }]);
+  }
+  shopName = newName;
+  document.getElementById('panel-title').textContent = shopName;
+  toast('تم حفظ اسم المتجر ✓');
+  await renderTab();
+}
+
+window.addEventListener('beforeunload', stopQrScanner);
+setMode('admin');
+</script>
+</body>
+</html>
