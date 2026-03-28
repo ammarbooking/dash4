@@ -18,23 +18,24 @@
       font-family:Tahoma,Arial,sans-serif;
       padding:20px;
     }
-    .wrap{max-width:980px;margin:auto}
+    .wrap{max-width:1100px;margin:auto}
     .card{
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
+      border-radius:20px;
       padding:18px;
       margin-bottom:14px;
+      box-shadow:0 10px 30px rgba(0,0,0,.15);
     }
     .title{
       text-align:center;
       color:var(--gold);
-      font-size:34px;
+      font-size:40px;
       font-weight:700;
       margin-bottom:18px;
     }
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .col{flex:1;min-width:220px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .col{flex:1;min-width:260px}
     input,select,button{
       width:100%;
       padding:14px;
@@ -47,11 +48,10 @@
       color:#fff;
       border:1px solid rgba(255,255,255,.08);
       margin-bottom:10px;
+      outline:none;
     }
-    button{
-      cursor:pointer;
-      font-weight:700;
-    }
+    input::placeholder{color:rgba(255,255,255,.45)}
+    button{cursor:pointer;font-weight:700}
     .btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold3));color:#111}
     .btn-dark{background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.08)}
     .btn-green{background:linear-gradient(135deg,var(--green),#27AE60);color:#fff}
@@ -79,9 +79,14 @@
       color:var(--gold);
       border:1px solid rgba(212,175,55,.25);
     }
-    .stamps{display:flex;gap:6px;margin-top:10px}
+    .badge.green{
+      background:rgba(46,204,113,.14);
+      color:#7ef0a7;
+      border-color:rgba(46,204,113,.3);
+    }
+    .stamps{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
     .stamp{
-      width:28px;height:28px;border-radius:50%;
+      width:30px;height:30px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
       font-size:12px;font-weight:bold;
       background:rgba(255,255,255,.08);color:#999;
@@ -94,7 +99,7 @@
     .section-title{
       color:var(--gold);
       margin-bottom:10px;
-      font-size:20px;
+      font-size:22px;
       font-weight:700;
     }
     .topbar{
@@ -103,7 +108,7 @@
     }
     .muted{opacity:.75}
     #msg{
-      margin:10px 0 0;
+      margin:12px 0 0;
       padding:12px 14px;
       border-radius:12px;
       display:none;
@@ -111,6 +116,13 @@
     }
     #msg.ok{display:block;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.3);color:#8ff0b3}
     #msg.err{display:block;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);color:#ffb3aa}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .actions button{flex:1;min-width:140px}
+    .empty{
+      text-align:center;
+      padding:24px;
+      opacity:.6;
+    }
   </style>
 </head>
 <body>
@@ -192,293 +204,292 @@
 </div>
 
 <script>
-  // ===== Supabase =====
-  const SUPABASE_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ===== State =====
-  let mode = 'admin';
-  let isAdmin = false;
-  let currentEmployee = null;
-  let customers = [];
+let mode = 'admin';
+let isAdmin = false;
+let currentEmployee = null;
+let customers = [];
 
-  // ===== Helpers =====
-  function showMsg(text, type='ok'){
-    const box = document.getElementById('msg');
-    box.className = type === 'err' ? 'err' : 'ok';
-    box.textContent = text;
+function showMsg(text, type='ok'){
+  const box = document.getElementById('msg');
+  box.className = type === 'err' ? 'err' : 'ok';
+  box.textContent = text;
+}
+
+function clearMsg(){
+  const box = document.getElementById('msg');
+  box.className = '';
+  box.style.display = 'none';
+  box.textContent = '';
+}
+
+function normalizeStamps(val){
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch(e){}
+  }
+  return [false,false,false,false,false];
+}
+
+function setMode(newMode){
+  mode = newMode;
+  document.getElementById('adminLogin').classList.toggle('hidden', newMode !== 'admin');
+  document.getElementById('empLogin').classList.toggle('hidden', newMode !== 'emp');
+  document.getElementById('adminTabBtn').className = newMode === 'admin' ? 'btn-gold tab' : 'btn-dark tab';
+  document.getElementById('empTabBtn').className = newMode === 'emp' ? 'btn-green tab' : 'btn-dark tab';
+  clearMsg();
+}
+
+function logout(){
+  isAdmin = false;
+  currentEmployee = null;
+  customers = [];
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('panelPage').classList.add('hidden');
+  clearMsg();
+}
+
+function enterPanel(){
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('panelPage').classList.remove('hidden');
+  document.getElementById('employeesBox').classList.toggle('hidden', !isAdmin);
+  document.getElementById('sessionInfo').textContent = isAdmin
+    ? 'مسجل كمشرف'
+    : `مسجل كموظف: ${currentEmployee.name} - ${branchLabel(currentEmployee.branch)}`;
+  loadCustomers();
+}
+
+function branchLabel(branch){
+  const map = {
+    riyadh:'فرع الرياض',
+    dammam:'فرع الدمام',
+    truck_riyadh:'ترك الرياض'
+  };
+  return map[branch] || branch || '-';
+}
+
+function loginAdmin(){
+  const pin = document.getElementById('adminPin').value.trim();
+  if (pin !== '1234') {
+    showMsg('رمز المشرف غير صحيح', 'err');
+    return;
+  }
+  isAdmin = true;
+  currentEmployee = null;
+  enterPanel();
+}
+
+async function loginEmployee(){
+  const name = document.getElementById('empName').value.trim();
+  const pin = document.getElementById('empPin').value.trim();
+
+  if (!name || !pin) {
+    showMsg('اكتب اسم الموظف والرمز', 'err');
+    return;
   }
 
-  function clearMsg(){
-    const box = document.getElementById('msg');
-    box.className = '';
-    box.style.display = 'none';
-    box.textContent = '';
+  const { data, error } = await db
+    .from('employees')
+    .select('*')
+    .eq('name', name)
+    .eq('pin', pin)
+    .limit(1);
+
+  if (error) {
+    showMsg('مشكلة في قراءة جدول الموظفين: ' + error.message, 'err');
+    return;
   }
 
-  function normalizeStamps(val){
-    if (Array.isArray(val)) return val;
-    if (typeof val === 'string') {
-      try {
-        const parsed = JSON.parse(val);
-        if (Array.isArray(parsed)) return parsed;
-      } catch(e){}
-    }
-    return [false,false,false,false,false];
+  if (!data || !data.length) {
+    showMsg('بيانات الموظف غير صحيحة أو الموظف غير موجود', 'err');
+    return;
   }
 
-  function setMode(newMode){
-    mode = newMode;
-    document.getElementById('adminLogin').classList.toggle('hidden', newMode !== 'admin');
-    document.getElementById('empLogin').classList.toggle('hidden', newMode !== 'emp');
-    document.getElementById('adminTabBtn').className = newMode === 'admin' ? 'btn-gold tab' : 'btn-dark tab';
-    document.getElementById('empTabBtn').className = newMode === 'emp' ? 'btn-green tab' : 'btn-dark tab';
-    clearMsg();
+  isAdmin = false;
+  currentEmployee = data[0];
+  enterPanel();
+}
+
+async function loadCustomers(){
+  let query = db.from('customers').select('*').order('created_at', { ascending: false });
+
+  if (!isAdmin && currentEmployee?.branch) {
+    query = query.eq('branch', currentEmployee.branch);
   }
 
-  function logout(){
-    isAdmin = false;
-    currentEmployee = null;
-    document.getElementById('loginPage').classList.remove('hidden');
-    document.getElementById('panelPage').classList.add('hidden');
-    clearMsg();
+  const { data, error } = await query;
+
+  if (error) {
+    alert('خطأ في تحميل العملاء: ' + error.message);
+    return;
   }
 
-  function enterPanel(){
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('panelPage').classList.remove('hidden');
-    document.getElementById('employeesBox').classList.toggle('hidden', !isAdmin);
-    document.getElementById('sessionInfo').textContent = isAdmin
-      ? 'مسجل كمشرف'
-      : `مسجل كموظف: ${currentEmployee.name} - ${branchLabel(currentEmployee.branch)}`;
-    loadCustomers();
+  customers = data || [];
+  renderCustomers();
+}
+
+function renderCustomers(){
+  const q = (document.getElementById('searchInput')?.value || '').trim();
+  const list = document.getElementById('customersList');
+
+  const filtered = customers.filter(c =>
+    (c.name || '').includes(q) || (c.phone || '').includes(q)
+  );
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">لا يوجد عملاء</div>';
+    return;
   }
 
-  function branchLabel(branch){
-    const map = {
-      riyadh:'فرع الرياض',
-      dammam:'فرع الدمام',
-      truck_riyadh:'ترك الرياض'
-    };
-    return map[branch] || branch || '-';
-  }
+  list.innerHTML = filtered.map(c => {
+    const stamps = normalizeStamps(c.stamps);
+    const done = stamps.filter(Boolean).length;
+    const rewards = Number(c.total_rewards || 0);
 
-  // ===== Login =====
-  function loginAdmin(){
-    const pin = document.getElementById('adminPin').value.trim();
-    if (pin !== '1234') {
-      showMsg('رمز المشرف غير صحيح', 'err');
-      return;
-    }
-    isAdmin = true;
-    currentEmployee = null;
-    enterPanel();
-  }
-
-  async function loginEmployee(){
-    const name = document.getElementById('empName').value.trim();
-    const pin = document.getElementById('empPin').value.trim();
-
-    if (!name || !pin) {
-      showMsg('اكتب اسم الموظف والرمز', 'err');
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('name', name)
-      .eq('pin', pin)
-      .limit(1);
-
-    if (error) {
-      showMsg('مشكلة في قراءة جدول الموظفين: ' + error.message, 'err');
-      return;
-    }
-
-    if (!data || !data.length) {
-      showMsg('بيانات الموظف غير صحيحة أو الموظف غير موجود', 'err');
-      return;
-    }
-
-    isAdmin = false;
-    currentEmployee = data[0];
-    enterPanel();
-  }
-
-  // ===== Customers =====
-  async function loadCustomers(){
-    let query = supabase.from('customers').select('*').order('created_at', { ascending: false });
-
-    if (!isAdmin && currentEmployee?.branch) {
-      query = query.eq('branch', currentEmployee.branch);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      alert('خطأ في تحميل العملاء: ' + error.message);
-      return;
-    }
-
-    customers = data || [];
-    renderCustomers();
-  }
-
-  function renderCustomers(){
-    const q = (document.getElementById('searchInput')?.value || '').trim();
-    const list = document.getElementById('customersList');
-
-    const filtered = customers.filter(c =>
-      (c.name || '').includes(q) || (c.phone || '').includes(q)
-    );
-
-    if (!filtered.length) {
-      list.innerHTML = '<div class="muted">لا يوجد عملاء</div>';
-      return;
-    }
-
-    list.innerHTML = filtered.map(c => {
-      const stamps = normalizeStamps(c.stamps);
-      const done = stamps.filter(Boolean).length;
-      return `
-        <div class="customer">
-          <div class="customer-top">
-            <div>
-              <div style="font-size:18px;font-weight:700">${c.name || '-'}</div>
-              <div class="small">${c.phone || '-'} | ${branchLabel(c.branch)}</div>
-            </div>
+    return `
+      <div class="customer">
+        <div class="customer-top">
+          <div>
+            <div style="font-size:18px;font-weight:700">${c.name || '-'}</div>
+            <div class="small">${c.phone || '-'} | ${branchLabel(c.branch)}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <div class="badge">${done}/5 أختام</div>
-          </div>
-
-          <div class="stamps">
-            ${stamps.map((s,i) => `<div class="stamp ${s ? 'on':''}">${s ? '✓' : i+1}</div>`).join('')}
-          </div>
-
-          <div class="row" style="margin-top:12px">
-            <div class="col"><button class="btn-gold" onclick="addStamp('${c.phone}')">+ إضافة ختم</button></div>
-            <div class="col"><button class="btn-dark" onclick="resetCard('${c.phone}')">تصفير البطاقة</button></div>
+            <div class="badge green">🎁 ${rewards} هدايا</div>
           </div>
         </div>
-      `;
-    }).join('');
+
+        <div class="stamps">
+          ${stamps.map((s,i) => `<div class="stamp ${s ? 'on':''}">${s ? '✓' : i+1}</div>`).join('')}
+        </div>
+
+        <div class="actions">
+          <button class="btn-gold" onclick="addStamp('${String(c.phone).replace(/'/g,"\\'")}')">+ إضافة ختم</button>
+          <button class="btn-dark" onclick="resetCard('${String(c.phone).replace(/'/g,"\\'")}')">تصفير البطاقة</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function addCustomer(){
+  const name = document.getElementById('newName').value.trim();
+  const phone = document.getElementById('newPhone').value.trim();
+  const birthday = document.getElementById('newBirthday').value || null;
+  const branch = isAdmin ? document.getElementById('newBranch').value : (currentEmployee?.branch || 'riyadh');
+
+  if (!name || !phone) {
+    alert('اكتب الاسم ورقم الهاتف');
+    return;
   }
 
-  async function addCustomer(){
-    const name = document.getElementById('newName').value.trim();
-    const phone = document.getElementById('newPhone').value.trim();
-    const birthday = document.getElementById('newBirthday').value || null;
-    const branch = isAdmin ? document.getElementById('newBranch').value : (currentEmployee?.branch || 'riyadh');
+  const payload = {
+    name,
+    phone,
+    birthday,
+    branch,
+    stamps: [false,false,false,false,false],
+    total_rewards: 0
+  };
 
-    if (!name || !phone) {
-      alert('اكتب الاسم ورقم الهاتف');
-      return;
-    }
+  const { error } = await db.from('customers').insert([payload]);
 
-    const payload = {
-      name,
-      phone,
-      birthday,
-      branch,
-      stamps: [false,false,false,false,false],
-      total_rewards: 0
-    };
-
-    const { error } = await supabase.from('customers').insert([payload]);
-
-    if (error) {
-      alert('فشل إضافة العميل: ' + error.message);
-      return;
-    }
-
-    document.getElementById('newName').value = '';
-    document.getElementById('newPhone').value = '';
-    document.getElementById('newBirthday').value = '';
-    alert('تم إضافة العميل');
-    loadCustomers();
+  if (error) {
+    alert('فشل إضافة العميل: ' + error.message);
+    return;
   }
 
-  async function addStamp(phone){
-    const customer = customers.find(c => c.phone === phone);
-    if (!customer) return;
+  document.getElementById('newName').value = '';
+  document.getElementById('newPhone').value = '';
+  document.getElementById('newBirthday').value = '';
+  alert('تم إضافة العميل');
+  loadCustomers();
+}
 
-    let stamps = normalizeStamps(customer.stamps);
-    const idx = stamps.findIndex(x => !x);
+async function addStamp(phone){
+  const customer = customers.find(c => String(c.phone) === String(phone));
+  if (!customer) return;
 
-    if (idx === -1) {
-      alert('البطاقة مكتملة بالفعل');
-      return;
-    }
+  let stamps = normalizeStamps(customer.stamps);
+  const idx = stamps.findIndex(x => !x);
 
-    stamps[idx] = true;
-
-    let totalRewards = Number(customer.total_rewards || 0);
-    if (idx === 4) totalRewards += 1;
-
-    const { error } = await supabase
-      .from('customers')
-      .update({
-        stamps,
-        total_rewards: totalRewards
-      })
-      .eq('phone', phone);
-
-    if (error) {
-      alert('فشل إضافة الختم: ' + error.message);
-      return;
-    }
-
-    alert(idx === 4 ? 'تمت إضافة الختم الأخير وحُسبت هدية 🎉' : 'تمت إضافة ختم');
-    loadCustomers();
+  if (idx === -1) {
+    alert('البطاقة مكتملة بالفعل');
+    return;
   }
 
-  async function resetCard(phone){
-    const { error } = await supabase
-      .from('customers')
-      .update({
-        stamps: [false,false,false,false,false]
-      })
-      .eq('phone', phone);
+  stamps[idx] = true;
 
-    if (error) {
-      alert('فشل تصفير البطاقة: ' + error.message);
-      return;
-    }
+  let totalRewards = Number(customer.total_rewards || 0);
+  if (idx === 4) totalRewards += 1;
 
-    alert('تم تصفير البطاقة');
-    loadCustomers();
+  const { error } = await db
+    .from('customers')
+    .update({
+      stamps,
+      total_rewards: totalRewards
+    })
+    .eq('phone', phone);
+
+  if (error) {
+    alert('فشل إضافة الختم: ' + error.message);
+    return;
   }
 
-  // ===== Employees =====
-  async function addEmployee(){
-    if (!isAdmin) return;
+  alert(idx === 4 ? 'تمت إضافة الختم الأخير وحُسبت هدية 🎉' : 'تمت إضافة ختم');
+  loadCustomers();
+}
 
-    const name = document.getElementById('addEmpName').value.trim();
-    const pin = document.getElementById('addEmpPin').value.trim();
-    const branch = document.getElementById('addEmpBranch').value;
+async function resetCard(phone){
+  const { error } = await db
+    .from('customers')
+    .update({
+      stamps: [false,false,false,false,false]
+    })
+    .eq('phone', phone);
 
-    if (!name || !pin) {
-      alert('اكتب اسم الموظف والرمز');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('employees')
-      .insert([{ name, pin, branch }]);
-
-    if (error) {
-      alert('فشل إضافة الموظف: ' + error.message);
-      return;
-    }
-
-    document.getElementById('addEmpName').value = '';
-    document.getElementById('addEmpPin').value = '';
-    alert('تم إضافة الموظف');
+  if (error) {
+    alert('فشل تصفير البطاقة: ' + error.message);
+    return;
   }
 
-  // ===== Start =====
-  setMode('admin');
+  alert('تم تصفير البطاقة');
+  loadCustomers();
+}
+
+async function addEmployee(){
+  if (!isAdmin) return;
+
+  const name = document.getElementById('addEmpName').value.trim();
+  const pin = document.getElementById('addEmpPin').value.trim();
+  const branch = document.getElementById('addEmpBranch').value;
+
+  if (!name || !pin) {
+    alert('اكتب اسم الموظف والرمز');
+    return;
+  }
+
+  const { error } = await db
+    .from('employees')
+    .insert([{ name, pin, branch }]);
+
+  if (error) {
+    alert('فشل إضافة الموظف: ' + error.message);
+    return;
+  }
+
+  document.getElementById('addEmpName').value = '';
+  document.getElementById('addEmpPin').value = '';
+  alert('تم إضافة الموظف');
+}
+
+setMode('admin');
 </script>
 </body>
 </html>
