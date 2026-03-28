@@ -89,15 +89,9 @@
     .alert-red{background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.15)}
     .alert-chip{font-size:12px;padding:4px 10px;border-radius:8px;display:inline-block;margin-left:4px;margin-bottom:4px}
 
-    .m-action{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);font-family:'Tajawal',sans-serif;cursor:pointer}
     .method-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-family:'Tajawal',sans-serif;color:rgba(255,255,255,.5);cursor:pointer}
     .method-btn.on{background:rgba(212,175,55,.1);border-color:rgba(212,175,55,.3);color:var(--gold)}
     .tmp-btn{width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);margin-bottom:6px;font-family:'Tajawal',sans-serif;cursor:pointer;text-align:right;color:#fff}
-
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:50;padding:14px}
-    .overlay.active{display:flex}
-    .modal{background:linear-gradient(160deg,#1E192D,var(--dk3));border-radius:24px;padding:22px;max-width:420px;width:100%;border:1px solid rgba(212,175,55,.2);animation:popIn .4s ease;max-height:90vh;overflow-y:auto}
-    .modal-close{width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 
     .fab{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--gold),var(--gold3));color:var(--dk2);font-size:28px;font-weight:300;box-shadow:0 6px 24px rgba(212,175,55,.4);z-index:10;cursor:pointer;display:none}
     .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:600;z-index:200;font-family:'Tajawal',sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3);display:none}
@@ -108,7 +102,6 @@
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
     #reader{width:100%;max-width:320px;overflow:hidden;border-radius:18px}
     #reader video{border-radius:18px}
-    .push-preview{background:rgba(0,0,0,.4);border-radius:14px;padding:14px 16px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06)}
     ::-webkit-scrollbar{width:4px}
     ::-webkit-scrollbar-thumb{background:rgba(212,175,55,.2);border-radius:4px}
   </style>
@@ -169,15 +162,10 @@
   </div>
 </div>
 
-<div class="overlay" id="msg-modal">
-  <div class="modal" id="msg-modal-content"></div>
-</div>
-
 <script>
 const SUPABASE_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const WHATSAPP_FUNCTION_URL = 'PUT_YOUR_SUPABASE_EDGE_FUNCTION_URL_HERE';
 
 const ADMIN_PIN = '7788';
 const BRANCHES = {
@@ -202,6 +190,7 @@ function toast(msg, type='success'){
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 }
+
 function go(page){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const el = document.getElementById('page-' + page);
@@ -212,18 +201,22 @@ function go(page){
     el.style.animation = 'slideUp .4s ease';
   }
 }
+
 function daysSince(d){ return d ? Math.floor((Date.now() - new Date(d).getTime()) / 864e5) : 999; }
 function getLastVisit(c){ return c.history?.length ? c.history[c.history.length - 1].date : c.created_at; }
 function isActive(c){ return daysSince(getLastVisit(c)) <= 14; }
 function fmt(d){ return d ? new Date(d).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' }) : '-'; }
 function fmtT(d){ return d ? new Date(d).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''; }
+function fmtFull(d){ return d ? new Date(d).toLocaleString('ar-SA') : '-'; }
 function fmtBD(bd){ return bd ? new Date(bd).toLocaleDateString('ar-SA', { month: 'long', day: 'numeric' }) : '-'; }
+
 function getTier(c){
   const v = (c.history || []).filter(h => h.action === 'stamp').length;
   if (v >= 20) return { name: 'ذهبي', icon: '👑', color: '#FFD700' };
   if (v >= 10) return { name: 'فضي', icon: '🥈', color: '#C0C0C0' };
   return { name: 'برونزي', icon: '🥉', color: '#CD7F32' };
 }
+
 function normalizeStamps(val){
   if (Array.isArray(val)) return val;
   if (typeof val === 'string') {
@@ -234,6 +227,7 @@ function normalizeStamps(val){
   }
   return [false,false,false,false,false];
 }
+
 function normalizeCustomer(c){
   return {
     ...c,
@@ -241,11 +235,13 @@ function normalizeCustomer(c){
     history: Array.isArray(c.history) ? c.history : []
   };
 }
+
 function isBDToday(c){
   if (!c.birthday) return false;
   const t = new Date(), b = new Date(c.birthday);
   return b.getMonth() === t.getMonth() && b.getDate() === t.getDate();
 }
+
 function isBDWeek(c){
   if (!c.birthday) return false;
   const t = new Date(), b = new Date(c.birthday);
@@ -256,37 +252,49 @@ function isBDWeek(c){
   }
   return false;
 }
+
 function isBDMonth(c){
   if (!c.birthday) return false;
   return new Date(c.birthday).getMonth() === new Date().getMonth();
 }
 
-async function sendWA(phone, message){
+async function saveNotif(type, to_user, message, count = 1){
   try {
-    if (!WHATSAPP_FUNCTION_URL || WHATSAPP_FUNCTION_URL.includes('PUT_YOUR')) {
-      toast('ضع رابط Edge Function أولًا', 'error');
-      return false;
-    }
-    const res = await fetch(WHATSAPP_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY
-      },
-      body: JSON.stringify({ phone, message })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'WhatsApp send failed');
-    return true;
-  } catch (e) {
-    console.error(e);
-    toast('فشل إرسال واتساب', 'error');
-    return false;
+    await db.from('loyalty_notifications').insert([{ type, to_user, message, count }]);
+  } catch(e) {
+    console.error('saveNotif error', e);
   }
 }
 
-async function saveNotif(type, to_user, message, count = 1){
-  await db.from('loyalty_notifications').insert([{ type, to_user, message, count }]);
+async function queueWA(phone, message, source = 'manual'){
+  try {
+    const { data: customerData } = await db
+      .from('customers')
+      .select('*')
+      .eq('phone', phone)
+      .limit(1);
+
+    const customer = customerData?.[0] || null;
+
+    const payload = {
+      phone,
+      customer_name: customer?.name || null,
+      message,
+      type: 'whatsapp',
+      status: 'pending',
+      source,
+      customer_phone: phone,
+      branch: customer?.branch || currentBranch || null
+    };
+
+    const { error } = await db.from('outbox_messages').insert([payload]);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error(e);
+    toast('فشل حفظ الرسالة في قاعدة البيانات', 'error');
+    return false;
+  }
 }
 
 async function setMode(mode){
@@ -338,6 +346,7 @@ function logoutAdmin(){
   stopQrScanner();
   isAdmin = false;
   currentEmp = null;
+  scanResult = null;
   go('login');
 }
 
@@ -366,6 +375,24 @@ async function getNotifs(){
   return data || [];
 }
 
+async function getOutboxStats(){
+  try {
+    const { data, error } = await db.from('outbox_messages').select('*').order('created_at', { ascending: false }).limit(50);
+    if (error) throw error;
+
+    const rows = data || [];
+    return {
+      all: rows,
+      pending: rows.filter(x => x.status === 'pending').length,
+      sent: rows.filter(x => x.status === 'sent').length,
+      failed: rows.filter(x => x.status === 'failed').length
+    };
+  } catch (e) {
+    console.error(e);
+    return { all: [], pending: 0, sent: 0, failed: 0 };
+  }
+}
+
 async function initPanel(){
   shopName = await getShopName();
   document.getElementById('panel-title').textContent = shopName;
@@ -380,6 +407,7 @@ async function initPanel(){
 
   const bs = document.getElementById('branch-selector');
   const bi = document.getElementById('emp-branch-info');
+
   if (isAdmin) {
     bs.style.display = 'flex';
     bi.style.display = 'none';
@@ -412,16 +440,26 @@ async function initPanel(){
   await renderTab();
 }
 
-async function setBranch(b){ currentBranch = b; await initPanel(); }
-async function switchTab(t){ stopQrScanner(); activeTab = t; await initPanel(); }
+async function setBranch(b){
+  currentBranch = b;
+  await initPanel();
+}
+
+async function switchTab(t){
+  stopQrScanner();
+  activeTab = t;
+  await initPanel();
+}
 
 function goAddCustomer(){
   document.getElementById('add-name').value = '';
   document.getElementById('add-phone').value = '';
   document.getElementById('add-birthday').value = '';
+
   document.getElementById('add-branch-chips').innerHTML = Object.entries(BRANCHES).map(([id, b]) =>
     `<button class="branch-chip" type="button" onclick="document.querySelectorAll('#add-branch-chips .branch-chip').forEach(x=>x.style='');this.style='background:${b.color}30;border-color:${b.color};color:${b.color}';this.dataset.branch='${id}'" data-branch="${id}" style="${currentBranch === id ? 'background:' + b.color + '30;border-color:' + b.color + ';color:' + b.color : ''}">${b.icon} ${b.name}</button>`
   ).join('');
+
   go('add');
 }
 
@@ -431,7 +469,6 @@ async function renderTab(){
   fab.style.display = activeTab === 'customers' && isAdmin ? 'block' : 'none';
 
   const custs = await getBranchCusts(currentBranch);
-  const allG = await getBranchCusts(null);
   const activeCusts = custs.filter(isActive);
   const inactiveCusts = custs.filter(c => !isActive(c));
   const totalRewards = custs.reduce((s, c) => s + Number(c.total_rewards || 0), 0);
@@ -440,6 +477,7 @@ async function renderTab(){
   const bdWeek = custs.filter(isBDWeek);
   const bdMonth = custs.filter(isBDMonth);
   const notifs = await getNotifs();
+  const outbox = await getOutboxStats();
 
   if (activeTab === 'dashboard') {
     let h = `<div class="g4">
@@ -455,31 +493,42 @@ async function renderTab(){
       h += `<div class="alert alert-bd"><div style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;color:var(--gold)">🎂 أعياد ميلاد هذا الأسبوع</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${bdWeek.map(c => '<span class="alert-chip" style="background:rgba(255,183,77,.15);color:#FFB74D">' + c.name + ' - ' + fmtBD(c.birthday) + '</span>').join('')}</div></div>`;
     }
 
-    const days = []; const dayMax = [0];
+    const days = [];
+    const dayMax = [0];
+
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() - 6 + i);
       const ds = d.toISOString().slice(0, 10);
       let cnt = 0;
-      custs.forEach(c => (c.history || []).forEach(hh => { if (hh.action === 'stamp' && hh.date?.slice(0, 10) === ds) cnt++; }));
+
+      custs.forEach(c => (c.history || []).forEach(hh => {
+        if (hh.action === 'stamp' && hh.date?.slice(0, 10) === ds) cnt++;
+      }));
+
       days.push({ day: d.toLocaleDateString('ar-SA', { weekday: 'short' }), count: cnt });
       if (cnt > dayMax[0]) dayMax[0] = cnt;
     }
+
     if (!dayMax[0]) dayMax[0] = 1;
 
     h += `<div class="sc"><h4 class="sec-t">📈 نشاط ٧ أيام</h4><div class="chart">${days.map(d => `<div class="bar-col"><div class="bar" style="height:${(d.count / dayMax[0]) * 100}%">${d.count > 0 ? '<span class="bar-n">' + d.count + '</span>' : ''}</div><span class="bar-d">${d.day}</span></div>`).join('')}</div></div>`;
+
     h += `<div class="sc"><h4 class="sec-t">⚡ ملخص</h4>
       <div class="qs"><span class="qs-l">إجمالي الأختام</span><span class="qs-v">${totalStamps}</span></div>
       <div class="qs"><span class="qs-l">نسبة النشاط</span><span class="qs-v">${custs.length ? Math.round(activeCusts.length / custs.length * 100) : 0}%</span></div>
       <div class="qs"><span class="qs-l">أعياد الشهر</span><span class="qs-v">${bdMonth.length}</span></div>
-      <div class="qs"><span class="qs-l">الرسائل</span><span class="qs-v">${notifs.length}</span></div>
+      <div class="qs"><span class="qs-l">رسائل بانتظار الإرسال</span><span class="qs-v">${outbox.pending}</span></div>
     </div>`;
+
     tc.innerHTML = h;
   }
 
   else if (activeTab === 'customers') {
-    let h = `<input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:12px" placeholder="🔍 بحث..." id="cust-search" oninput="renderTab()">`;
-    const sq = document.getElementById('cust-search')?.value || '';
+    const currentSearch = document.getElementById('cust-search')?.value || '';
+    let h = `<input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:12px" placeholder="🔍 بحث..." id="cust-search" value="${currentSearch.replace(/"/g, '&quot;')}" oninput="renderTab()">`;
+
+    const sq = currentSearch;
     const filtered = custs.filter(c => (c.name || '').includes(sq) || String(c.phone || '').includes(sq));
 
     h += filtered.map(c => {
@@ -558,7 +607,7 @@ async function renderTab(){
       </div>
 
       <div class="sc">
-        <h4 class="sec-t">🔔 إشعار سريع لعميل</h4>
+        <h4 class="sec-t">🔔 رسالة سريعة لعميل</h4>
         <input style="width:100%;padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:14px;font-family:'Tajawal',sans-serif;margin-bottom:8px" type="tel" placeholder="رقم العميل" id="q-phone" dir="ltr">
         <textarea id="q-msg" placeholder="نص الرسالة"></textarea>
         <button class="btn btn-gold" onclick="quickSend()">📤 إرسال</button>
@@ -569,6 +618,13 @@ async function renderTab(){
         <button class="tmp-btn" onclick="prefillTemplate('مرحباً {name}! 🎉 ننتظرك في {shop}')">ترحيب</button>
         <button class="tmp-btn" onclick="prefillTemplate('{name}، عندك {stamps} أختام! زورنا اليوم')">تذكير</button>
         <button class="tmp-btn" onclick="prefillTemplate('🎂 كل عام وأنت بخير {name}!')">عيد ميلاد</button>
+      </div>
+
+      <div class="sc">
+        <h4 class="sec-t">📬 طابور الرسائل</h4>
+        <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
+        <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
+        <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
       </div>
 
       <div class="sc">
@@ -628,9 +684,21 @@ async function renderTab(){
       </div>
 
       <div class="sc">
-        <h4 class="sec-t">💬 واتساب</h4>
-        <div class="qs"><span class="qs-l">حالة الربط</span><span class="qs-v">${WHATSAPP_FUNCTION_URL.includes('PUT_YOUR') ? 'غير مضبوط' : 'جاهز'}</span></div>
-        <div class="qs"><span class="qs-l">طريقة الربط</span><span class="qs-v">Supabase Function</span></div>
+        <h4 class="sec-t">💬 تكامل واتساب</h4>
+        <div class="qs"><span class="qs-l">طريقة الإرسال</span><span class="qs-v">من قاعدة البيانات</span></div>
+        <div class="qs"><span class="qs-l">اسم الجدول</span><span class="qs-v">outbox_messages</span></div>
+        <div class="qs"><span class="qs-l">قيد الانتظار</span><span class="qs-v">${outbox.pending}</span></div>
+        <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
+        <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
+      </div>
+
+      <div class="sc">
+        <h4 class="sec-t">ℹ️ ملاحظة</h4>
+        <p style="font-size:13px;line-height:1.8;color:rgba(255,255,255,.6)">
+          هذه اللوحة لا ترسل واتساب مباشرة. عند الإرسال يتم حفظ الرسالة في جدول
+          <span style="color:var(--gold)">outbox_messages</span>
+          ثم يقوم البوت بإرسالها وتحديث الحالة.
+        </p>
       </div>
     `;
   }
@@ -700,14 +768,17 @@ async function doScanManual(){
 
 async function fetchCustomerByPhone(phone){
   const { data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1);
+
   if (error) {
     toast('خطأ في البحث: ' + error.message, 'error');
     return;
   }
+
   if (!data || !data.length) {
     toast('العميل غير موجود', 'error');
     return;
   }
+
   scanResult = normalizeCustomer(data[0]);
   renderScanResult();
   toast('تم العثور على العميل ✓');
@@ -715,6 +786,7 @@ async function fetchCustomerByPhone(phone){
 
 function renderScanResult(){
   if (!scanResult) return;
+
   const c = scanResult;
   const stamps = normalizeStamps(c.stamps);
   const done = stamps.filter(Boolean).length;
@@ -812,7 +884,8 @@ async function doStamp(phone){
   }
 
   if (msgMethod === 'whatsapp') {
-    await sendWA(phone, waMessage);
+    const queued = await queueWA(phone, waMessage, 'stamp');
+    if (!queued) return;
   }
 
   await fetchCustomerByPhone(phone);
@@ -858,7 +931,11 @@ async function addCustomer(){
   const bd = document.getElementById('add-birthday').value;
   const branchEl = document.querySelector('#add-branch-chips .branch-chip[style*="background"]');
   const branch = branchEl ? branchEl.dataset.branch : currentBranch;
-  if (!name || !phone) { toast('أدخل البيانات', 'error'); return; }
+
+  if (!name || !phone) {
+    toast('أدخل البيانات', 'error');
+    return;
+  }
 
   const referral_code = String(phone).slice(-4) + Math.random().toString(36).slice(2,5).toUpperCase();
 
@@ -888,7 +965,11 @@ async function addEmployee(){
   const name = document.getElementById('new-emp-name').value.trim();
   const pin = document.getElementById('new-emp-pin').value.trim();
   const branch = document.getElementById('new-emp-branch').value || 'riyadh';
-  if (!name || !pin) { toast('أدخل اسم الموظف والرمز', 'error'); return; }
+
+  if (!name || !pin) {
+    toast('أدخل اسم الموظف والرمز', 'error');
+    return;
+  }
 
   const { error } = await db.from('employees').insert([{ name, pin, branch }]);
   if (error) {
@@ -913,6 +994,7 @@ async function delEmployee(id){
 async function quickSend(){
   const phone = document.getElementById('q-phone').value.trim();
   const msg = document.getElementById('q-msg').value.trim();
+
   if (!phone || !msg) {
     toast('اكتب رقم العميل والرسالة', 'error');
     return;
@@ -925,17 +1007,21 @@ async function quickSend(){
   }
 
   const c = normalizeCustomer(data[0]);
-  const body = msg.replace(/{name}/g, c.name).replace(/{stamps}/g, c.stamps.filter(Boolean).length).replace(/{shop}/g, shopName);
+  const body = msg
+    .replace(/{name}/g, c.name)
+    .replace(/{stamps}/g, c.stamps.filter(Boolean).length)
+    .replace(/{shop}/g, shopName);
 
   if (msgMethod === 'whatsapp') {
-    const ok = await sendWA(phone, body);
+    const ok = await queueWA(phone, body, 'quickSend');
     if (!ok) return;
     await saveNotif('whatsapp', c.name, body, 1);
+    toast('تمت إضافة الرسالة للطابور ✓');
   } else {
     await saveNotif('push', c.name, body, 1);
+    toast('تم حفظ الإشعار الداخلي ✓');
   }
 
-  toast('تم الإرسال لـ ' + c.name + ' ✓');
   document.getElementById('q-phone').value = '';
   document.getElementById('q-msg').value = '';
   await renderTab();
@@ -943,19 +1029,34 @@ async function quickSend(){
 
 async function saveShopName(){
   const newName = document.getElementById('shop-name-input').value.trim() || 'متجر الولاء';
-  const { data } = await db.from('shop_settings').select('*').limit(1);
+  const { data, error } = await db.from('shop_settings').select('*').limit(1);
+
+  if (error) {
+    toast('فشل قراءة الإعدادات', 'error');
+    return;
+  }
 
   if (data && data.length) {
-    await db.from('shop_settings').update({ shop_name: newName }).eq('id', data[0].id);
+    const { error: updateError } = await db.from('shop_settings').update({ shop_name: newName }).eq('id', data[0].id);
+    if (updateError) {
+      toast('فشل حفظ اسم المتجر', 'error');
+      return;
+    }
   } else {
-    await db.from('shop_settings').insert([{ shop_name: newName }]);
+    const { error: insertError } = await db.from('shop_settings').insert([{ shop_name: newName }]);
+    if (insertError) {
+      toast('فشل حفظ اسم المتجر', 'error');
+      return;
+    }
   }
 
   shopName = newName;
-  document.getElementById('panel-title').textContent = newName;
-  toast('تم الحفظ ✓');
+  document.getElementById('panel-title').textContent = shopName;
+  toast('تم حفظ اسم المتجر ✓');
+  await renderTab();
 }
 
+window.addEventListener('beforeunload', stopQrScanner);
 setMode('admin');
 </script>
 </body>
