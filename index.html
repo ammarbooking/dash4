@@ -86,7 +86,6 @@
 
     .alert{border-radius:16px;padding:14px;margin-bottom:12px}
     .alert-bd{background:rgba(255,183,77,.08);border:1px solid rgba(255,183,77,.2)}
-    .alert-red{background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.15)}
     .alert-chip{font-size:12px;padding:4px 10px;border-radius:8px;display:inline-block;margin-left:4px;margin-bottom:4px}
 
     .method-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-family:'Tajawal',sans-serif;color:rgba(255,255,255,.5);cursor:pointer}
@@ -207,7 +206,6 @@ function getLastVisit(c){ return c.history?.length ? c.history[c.history.length 
 function isActive(c){ return daysSince(getLastVisit(c)) <= 14; }
 function fmt(d){ return d ? new Date(d).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' }) : '-'; }
 function fmtT(d){ return d ? new Date(d).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''; }
-function fmtFull(d){ return d ? new Date(d).toLocaleString('ar-SA') : '-'; }
 function fmtBD(bd){ return bd ? new Date(bd).toLocaleDateString('ar-SA', { month: 'long', day: 'numeric' }) : '-'; }
 
 function getTier(c){
@@ -236,6 +234,47 @@ function normalizeCustomer(c){
   };
 }
 
+function normalizePhone(phone){
+  if (!phone) return '';
+
+  let p = String(phone).trim();
+
+  const arNums = '٠١٢٣٤٥٦٧٨٩';
+  p = p.replace(/[٠-٩]/g, d => arNums.indexOf(d));
+  p = p.replace(/\D/g, '');
+
+  if (p.startsWith('966')) {
+    p = '0' + p.slice(3);
+  }
+
+  if (p.startsWith('5') && p.length === 9) {
+    p = '0' + p;
+  }
+
+  return p;
+}
+
+async function findCustomerByPhone(phone){
+  const normalized = normalizePhone(phone);
+
+  const variants = [...new Set([
+    normalized,
+    normalized.replace(/^0/, '966'),
+    normalized.replace(/^0/, ''),
+    '+' + normalized.replace(/^0/, '966')
+  ])].filter(Boolean);
+
+  const { data, error } = await db
+    .from('customers')
+    .select('*')
+    .in('phone', variants)
+    .limit(1);
+
+  if (error) throw error;
+
+  return data && data.length ? normalizeCustomer(data[0]) : null;
+}
+
 function isBDToday(c){
   if (!c.birthday) return false;
   const t = new Date(), b = new Date(c.birthday);
@@ -261,17 +300,24 @@ function isBDMonth(c){
 async function saveNotif(type, to_user, message, count = 1){
   try {
     await db.from('loyalty_notifications').insert([{ type, to_user, message, count }]);
-  } catch(e) {
+  } catch (e) {
     console.error('saveNotif error', e);
   }
 }
 
 async function queueWA(phone, message, source = 'manual'){
   try {
+    phone = normalizePhone(phone);
+
     const { data: customerData } = await db
       .from('customers')
       .select('*')
-      .eq('phone', phone)
+      .in('phone', [
+        phone,
+        phone.replace(/^0/, '966'),
+        phone.replace(/^0/, ''),
+        '+' + phone.replace(/^0/, '966')
+      ])
       .limit(1);
 
     const customer = customerData?.[0] || null;
@@ -289,6 +335,7 @@ async function queueWA(phone, message, source = 'manual'){
 
     const { error } = await db.from('outbox_messages').insert([payload]);
     if (error) throw error;
+
     return true;
   } catch (e) {
     console.error(e);
@@ -691,15 +738,6 @@ async function renderTab(){
         <div class="qs"><span class="qs-l">تم الإرسال</span><span class="qs-v">${outbox.sent}</span></div>
         <div class="qs"><span class="qs-l">فشل</span><span class="qs-v">${outbox.failed}</span></div>
       </div>
-
-      <div class="sc">
-        <h4 class="sec-t">ℹ️ ملاحظة</h4>
-        <p style="font-size:13px;line-height:1.8;color:rgba(255,255,255,.6)">
-          هذه اللوحة لا ترسل واتساب مباشرة. عند الإرسال يتم حفظ الرسالة في جدول
-          <span style="color:var(--gold)">outbox_messages</span>
-          ثم يقوم البوت بإرسالها وتحديث الحالة.
-        </p>
-      </div>
     `;
   }
 }
@@ -747,41 +785,45 @@ function stopQrScanner(){
 }
 
 async function handleScannedCode(decodedText){
-  const phone = String(decodedText).trim();
+  const phone = normalizePhone(decodedText);
+
   if (!phone) {
     toast('QR غير صالح', 'error');
     return;
   }
+
   const input = document.getElementById('scan-input');
   if (input) input.value = phone;
+
   await fetchCustomerByPhone(phone);
 }
 
 async function doScanManual(){
   const phone = document.getElementById('scan-input').value.trim();
+
   if (!phone) {
     toast('اكتب رقم العميل', 'error');
     return;
   }
+
   await fetchCustomerByPhone(phone);
 }
 
 async function fetchCustomerByPhone(phone){
-  const { data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1);
+  try {
+    const customer = await findCustomerByPhone(phone);
 
-  if (error) {
+    if (!customer) {
+      toast('العميل غير موجود', 'error');
+      return;
+    }
+
+    scanResult = customer;
+    renderScanResult();
+    toast('تم العثور على العميل ✓');
+  } catch (error) {
     toast('خطأ في البحث: ' + error.message, 'error');
-    return;
   }
-
-  if (!data || !data.length) {
-    toast('العميل غير موجود', 'error');
-    return;
-  }
-
-  scanResult = normalizeCustomer(data[0]);
-  renderScanResult();
-  toast('تم العثور على العميل ✓');
 }
 
 function renderScanResult(){
@@ -831,13 +873,14 @@ function renderScanResult(){
 }
 
 async function doStamp(phone){
-  const { data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1);
-  if (error || !data || !data.length) {
+  const c = await findCustomerByPhone(phone);
+
+  if (!c) {
     toast('تعذر تحميل العميل', 'error');
     return;
   }
 
-  const c = normalizeCustomer(data[0]);
+  const normalizedPhone = normalizePhone(c.phone);
   const stamps = normalizeStamps(c.stamps);
   const idx = stamps.findIndex(s => !s);
 
@@ -876,7 +919,12 @@ async function doStamp(phone){
   const { error: updateError } = await db
     .from('customers')
     .update({ stamps, history, total_rewards })
-    .eq('phone', phone);
+    .in('phone', [
+      normalizedPhone,
+      normalizedPhone.replace(/^0/, '966'),
+      normalizedPhone.replace(/^0/, ''),
+      '+' + normalizedPhone.replace(/^0/, '966')
+    ]);
 
   if (updateError) {
     toast('فشل إضافة الختم: ' + updateError.message, 'error');
@@ -884,23 +932,24 @@ async function doStamp(phone){
   }
 
   if (msgMethod === 'whatsapp') {
-    const queued = await queueWA(phone, waMessage, 'stamp');
+    const queued = await queueWA(normalizedPhone, waMessage, 'stamp');
     if (!queued) return;
   }
 
-  await fetchCustomerByPhone(phone);
+  await fetchCustomerByPhone(normalizedPhone);
   toast('تم إضافة ختم ✓');
   if (activeTab === 'customers' || activeTab === 'dashboard') await renderTab();
 }
 
 async function doReset(phone){
-  const { data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1);
-  if (error || !data || !data.length) {
+  const c = await findCustomerByPhone(phone);
+
+  if (!c) {
     toast('تعذر تحميل العميل', 'error');
     return;
   }
 
-  const c = normalizeCustomer(data[0]);
+  const normalizedPhone = normalizePhone(c.phone);
   let history = Array.isArray(c.history) ? c.history : [];
   history.push({
     action: 'reset',
@@ -912,7 +961,12 @@ async function doReset(phone){
   const { error: updateError } = await db
     .from('customers')
     .update({ stamps: [false,false,false,false,false], history })
-    .eq('phone', phone);
+    .in('phone', [
+      normalizedPhone,
+      normalizedPhone.replace(/^0/, '966'),
+      normalizedPhone.replace(/^0/, ''),
+      '+' + normalizedPhone.replace(/^0/, '966')
+    ]);
 
   if (updateError) {
     toast('فشل تصفير البطاقة: ' + updateError.message, 'error');
@@ -920,20 +974,26 @@ async function doReset(phone){
   }
 
   await saveNotif('reset', c.name, 'تم تصفير البطاقة', 1);
-  await fetchCustomerByPhone(phone);
+  await fetchCustomerByPhone(normalizedPhone);
   toast('تم تصفير البطاقة ✓');
   if (activeTab === 'customers' || activeTab === 'dashboard') await renderTab();
 }
 
 async function addCustomer(){
   const name = document.getElementById('add-name').value.trim();
-  const phone = document.getElementById('add-phone').value.trim();
+  const phone = normalizePhone(document.getElementById('add-phone').value.trim());
   const bd = document.getElementById('add-birthday').value;
   const branchEl = document.querySelector('#add-branch-chips .branch-chip[style*="background"]');
   const branch = branchEl ? branchEl.dataset.branch : currentBranch;
 
   if (!name || !phone) {
     toast('أدخل البيانات', 'error');
+    return;
+  }
+
+  const existing = await findCustomerByPhone(phone);
+  if (existing) {
+    toast('العميل موجود بالفعل', 'error');
     return;
   }
 
@@ -992,39 +1052,46 @@ async function delEmployee(id){
 }
 
 async function quickSend(){
-  const phone = document.getElementById('q-phone').value.trim();
+  const rawPhone = document.getElementById('q-phone').value.trim();
   const msg = document.getElementById('q-msg').value.trim();
 
-  if (!phone || !msg) {
+  if (!rawPhone || !msg) {
     toast('اكتب رقم العميل والرسالة', 'error');
     return;
   }
 
-  const { data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1);
-  if (error || !data || !data.length) {
-    toast('العميل غير موجود', 'error');
-    return;
+  try {
+    const c = await findCustomerByPhone(rawPhone);
+
+    if (!c) {
+      toast('العميل غير موجود', 'error');
+      return;
+    }
+
+    const phone = normalizePhone(c.phone);
+
+    const body = msg
+      .replace(/{name}/g, c.name || '')
+      .replace(/{stamps}/g, (c.stamps || []).filter(Boolean).length)
+      .replace(/{shop}/g, shopName || '');
+
+    if (msgMethod === 'whatsapp') {
+      const ok = await queueWA(phone, body, 'quickSend');
+      if (!ok) return;
+
+      await saveNotif('whatsapp', c.name, body, 1);
+      toast('تمت إضافة الرسالة للطابور ✓');
+    } else {
+      await saveNotif('push', c.name, body, 1);
+      toast('تم حفظ الإشعار الداخلي ✓');
+    }
+
+    document.getElementById('q-phone').value = '';
+    document.getElementById('q-msg').value = '';
+    await renderTab();
+  } catch (error) {
+    toast('خطأ: ' + error.message, 'error');
   }
-
-  const c = normalizeCustomer(data[0]);
-  const body = msg
-    .replace(/{name}/g, c.name)
-    .replace(/{stamps}/g, c.stamps.filter(Boolean).length)
-    .replace(/{shop}/g, shopName);
-
-  if (msgMethod === 'whatsapp') {
-    const ok = await queueWA(phone, body, 'quickSend');
-    if (!ok) return;
-    await saveNotif('whatsapp', c.name, body, 1);
-    toast('تمت إضافة الرسالة للطابور ✓');
-  } else {
-    await saveNotif('push', c.name, body, 1);
-    toast('تم حفظ الإشعار الداخلي ✓');
-  }
-
-  document.getElementById('q-phone').value = '';
-  document.getElementById('q-msg').value = '';
-  await renderTab();
 }
 
 async function saveShopName(){
