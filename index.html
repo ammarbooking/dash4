@@ -348,60 +348,32 @@ function isBDMonth(c) { if (!c.birthday) return false; return new Date(c.birthda
 function getBranchCusts(branch) { const all = Object.values(getCusts()); return branch ? all.filter(c => c.branch === branch || !c.branch) : all; }
 
 // ============ WHATSAPP BOT ============
+const EDGE_FUNCTION_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co/functions/v1/send-whatsapp';
+const EDGE_FUNCTION_ANON_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
+
 async function sendWA(phone, message) {
-  const clean = String(phone || '').replace(/\D/g, '');
-  if (!clean) return { ok: false, reason: 'invalid_phone' };
-
-  const full = clean.startsWith('0') ? '966' + clean.slice(1) : clean;
-
   try {
-    const res = await fetch(`${WA_API.baseUrl}/${WA_API.instanceId}/messages/chat`, {
+    const res = await fetch(EDGE_FUNCTION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: WA_API.token, to: full, body: message }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + EDGE_FUNCTION_ANON_KEY
+      },
+      body: JSON.stringify({ phone, message })
     });
 
     let data = {};
     try { data = await res.json(); } catch (e) {}
 
-    console.log('WhatsBot primary response:', res.status, data);
+    console.log('Edge Function WhatsApp response:', res.status, data);
 
-    if (res.ok && (data.sent || data.id || data.status === 'success' || data.message_id)) {
-      return { ok: true, provider: 'primary', data };
+    if (res.ok && data.ok) {
+      return { ok: true, data };
     }
 
-    const res2 = await fetch(`${WA_API.baseUrl}/send/text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + WA_API.token
-      },
-      body: JSON.stringify({
-        instance_id: WA_API.instanceId,
-        to: full,
-        message: message
-      }),
-    });
-
-    let data2 = {};
-    try { data2 = await res2.json(); } catch (e) {}
-
-    console.log('WhatsBot alt response:', res2.status, data2);
-
-    if (res2.ok && (data2.sent || data2.id || data2.status === 'success' || data2.message_id)) {
-      return { ok: true, provider: 'alternative', data: data2 };
-    }
-
-    return {
-      ok: false,
-      reason: 'api_failed',
-      status1: res.status,
-      status2: res2.status,
-      data1: data,
-      data2: data2
-    };
+    return { ok: false, reason: 'edge_function_failed', status: res.status, data };
   } catch (e) {
-    console.error('WhatsBot error:', e);
+    console.error('sendWA edge error:', e);
     return { ok: false, reason: 'network_error', error: String(e) };
   }
 }
