@@ -231,6 +231,7 @@ let selectedCusts = [];
 const SUPABASE_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const WHATSAPP_VIEW = 'whatsapp_customers'; // غيّر الاسم هنا لو الـ View عندك مختلف
 
 const gs = (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
 const ss = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
@@ -265,15 +266,50 @@ function normalizeCustomer(row) {
 }
 
 async function refreshCustomers() {
-  const { data, error } = await db.from('customers').select('*');
+  let data = null;
+  let error = null;
+
+  // نقرأ من الـ View لو موجود، ولو فشل نرجع للجدول الأصلي
+  ({ data, error } = await db.from(WHATSAPP_VIEW).select('*'));
+
+  if (error) {
+    console.warn('View load error, fallback to customers:', error);
+    ({ data, error } = await db.from('customers').select('*'));
+  }
+
   if (error) {
     console.error('Supabase load error:', error);
     toast('تعذر تحميل العملاء من قاعدة البيانات', 'error');
     return customersCache;
   }
-  customersCache = Object.fromEntries((data || []).map(c => [c.phone, normalizeCustomer(c)]));
+
+  customersCache = Object.fromEntries(
+    (data || [])
+      .filter(c => c && c.phone)
+      .map(c => [c.phone, normalizeCustomer(c)])
+  );
+
   customersLoaded = true;
   return customersCache;
+}
+
+async function getCustomerByPhone(phone) {
+  let data = null;
+  let error = null;
+
+  ({ data, error } = await db.from(WHATSAPP_VIEW).select('*').eq('phone', phone).limit(1));
+
+  if (error) {
+    console.warn('View single lookup error, fallback to customers:', error);
+    ({ data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1));
+  }
+
+  if (error || !data || !data.length) {
+    console.error('getCustomerByPhone error:', error);
+    return null;
+  }
+
+  return normalizeCustomer(data[0]);
 }
 
 const getCusts = () => customersCache;
@@ -313,34 +349,60 @@ function getBranchCusts(branch) { const all = Object.values(getCusts()); return 
 
 // ============ WHATSAPP BOT ============
 async function sendWA(phone, message) {
-  const clean = phone.replace(/\D/g, '');
+  const clean = String(phone || '').replace(/\D/g, '');
+  if (!clean) return { ok: false, reason: 'invalid_phone' };
+
   const full = clean.startsWith('0') ? '966' + clean.slice(1) : clean;
+
   try {
-    // WhatsBot.at Cloud API
     const res = await fetch(`${WA_API.baseUrl}/${WA_API.instanceId}/messages/chat`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: WA_API.token, to: full, body: message }),
     });
-    const data = await res.json();
-    if (data.sent || data.id || data.status === 'success' || data.message_id) {
-      console.log('WhatsBot.at sent:', data); return true;
+
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+
+    console.log('WhatsBot primary response:', res.status, data);
+
+    if (res.ok && (data.sent || data.id || data.status === 'success' || data.message_id)) {
+      return { ok: true, provider: 'primary', data };
     }
-    // Try alternative endpoint format
+
     const res2 = await fetch(`${WA_API.baseUrl}/send/text`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + WA_API.token },
-      body: JSON.stringify({ instance_id: WA_API.instanceId, to: full, message: message }),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + WA_API.token
+      },
+      body: JSON.stringify({
+        instance_id: WA_API.instanceId,
+        to: full,
+        message: message
+      }),
     });
-    const data2 = await res2.json();
-    if (data2.sent || data2.id || data2.status === 'success') {
-      console.log('WhatsBot.at sent (alt):', data2); return true;
+
+    let data2 = {};
+    try { data2 = await res2.json(); } catch (e) {}
+
+    console.log('WhatsBot alt response:', res2.status, data2);
+
+    if (res2.ok && (data2.sent || data2.id || data2.status === 'success' || data2.message_id)) {
+      return { ok: true, provider: 'alternative', data: data2 };
     }
-    console.log('WhatsBot.at response:', data, data2);
-    window.open('https://wa.me/' + full + '?text=' + encodeURIComponent(message), '_blank');
-    return false;
+
+    return {
+      ok: false,
+      reason: 'api_failed',
+      status1: res.status,
+      status2: res2.status,
+      data1: data,
+      data2: data2
+    };
   } catch (e) {
-    console.log('WhatsBot.at error, fallback:', e);
-    window.open('https://wa.me/' + full + '?text=' + encodeURIComponent(message), '_blank');
-    return false;
+    console.error('WhatsBot error:', e);
+    return { ok: false, reason: 'network_error', error: String(e) };
   }
 }
 
@@ -757,10 +819,11 @@ function toggleCustSelect(phone, checked) {
   const el = document.getElementById('msg-count'); if (el) el.textContent = selectedCusts.length;
 }
 
-function sendBulkMsg() {
+async function sendBulkMsg() {
   const body = document.getElementById('msg-body').value.trim();
   const title = document.getElementById('msg-title')?.value.trim() || shopName;
   if (!body) { toast('اكتب الرسالة', 'error'); return; }
+
   const custs = getBranchCusts(currentBranch);
   let tgt = [];
   if (msgTarget === 'all') tgt = custs;
@@ -768,37 +831,103 @@ function sendBulkMsg() {
   else if (msgTarget === 'inactive') tgt = custs.filter(c => !isActive(c));
   else if (msgTarget === 'birthday') tgt = custs.filter(isBDWeek);
   else if (msgTarget === 'selected') tgt = custs.filter(c => selectedCusts.includes(c.phone));
+
   if (!tgt.length) { toast('لا يوجد عملاء', 'error'); return; }
 
-  tgt.forEach((c, i) => {
-    const personalBody = body.replace(/{name}/g, c.name).replace(/{stamps}/g, c.stamps.filter(Boolean).length).replace(/{shop}/g, shopName);
-    const personalTitle = title.replace(/{name}/g, c.name);
-    setTimeout(() => {
-      if (msgMethod === 'whatsapp') sendWA(c.phone, personalTitle + '\n' + personalBody);
-      else sendPushNotif(personalTitle, personalBody);
-    }, i * (msgMethod === 'whatsapp' ? 1000 : 200));
-  });
+  let successCount = 0;
+  let failCount = 0;
 
-  const n = { id: Date.now(), type: 'bulk', to: tgt.length + ' عميل', message: body, date: new Date().toISOString(), count: tgt.length };
+  for (const c of tgt) {
+    const stampsCount = Array.isArray(c.stamps) ? c.stamps.filter(Boolean).length : 0;
+    const personalBody = body
+      .replace(/{name}/g, c.name || '')
+      .replace(/{stamps}/g, String(stampsCount))
+      .replace(/{shop}/g, shopName)
+      .replace(/{branch}/g, c.branch || '')
+      .replace(/{phone}/g, c.phone || '');
+
+    const personalTitle = title.replace(/{name}/g, c.name || '');
+    const fullMessage = personalTitle + '\n' + personalBody;
+
+    if (msgMethod === 'whatsapp') {
+      const result = await sendWA(c.phone, fullMessage);
+      if (result.ok) successCount++;
+      else {
+        failCount++;
+        console.error('WhatsApp send failed for', c.phone, result);
+      }
+    } else {
+      sendPushNotif(personalTitle, personalBody);
+      successCount++;
+    }
+
+    await new Promise(r => setTimeout(r, msgMethod === 'whatsapp' ? 700 : 150));
+  }
+
+  const n = {
+    id: Date.now(),
+    type: 'bulk',
+    to: tgt.length + ' عميل',
+    message: body,
+    date: new Date().toISOString(),
+    count: tgt.length,
+    successCount,
+    failCount
+  };
   saveNotifHist([n, ...getNotifs()]);
-  toast('تم الإرسال لـ ' + tgt.length + ' عميل ' + (msgMethod === 'push' ? '🔔' : '💬'));
-  closeMsgModal(); renderTab();
+
+  if (failCount > 0) toast(`تم إرسال ${successCount} وفشل ${failCount}`, 'error');
+  else toast('تم الإرسال لـ ' + successCount + ' عميل ✓');
+
+  closeMsgModal();
+  await refreshCustomers();
+  renderTab();
 }
 
 async function quickSend() {
   const phone = document.getElementById('q-phone').value.trim();
   const msg = document.getElementById('q-msg').value.trim();
-  const custs = getCusts();
-  if (!custs[phone]) { toast('العميل غير موجود', 'error'); return; }
+
+  if (!phone) { toast('اكتب رقم العميل', 'error'); return; }
   if (!msg) { toast('اكتب الرسالة', 'error'); return; }
-  const c = custs[phone];
-  const body = msg.replace(/{name}/g, c.name);
-  if (msgMethod === 'whatsapp') sendWA(phone, body);
-  else sendPushNotif(shopName, body);
-  const n = { id: Date.now(), type: msgMethod === 'whatsapp' ? 'whatsapp' : 'push', to: c.name, phone, message: body, date: new Date().toISOString() };
+
+  let c = getCusts()[phone];
+  if (!c) c = await getCustomerByPhone(phone);
+
+  if (!c) { toast('العميل غير موجود', 'error'); return; }
+
+  const stampsCount = Array.isArray(c.stamps) ? c.stamps.filter(Boolean).length : 0;
+  const body = msg
+    .replace(/{name}/g, c.name || '')
+    .replace(/{stamps}/g, String(stampsCount))
+    .replace(/{shop}/g, shopName)
+    .replace(/{branch}/g, c.branch || '')
+    .replace(/{phone}/g, c.phone || '');
+
+  if (msgMethod === 'whatsapp') {
+    const result = await sendWA(c.phone || phone, body);
+    if (!result.ok) {
+      console.error('WhatsApp quick send failed:', result);
+      toast('فشل إرسال الواتساب', 'error');
+      return;
+    }
+  } else {
+    sendPushNotif(shopName, body);
+  }
+
+  const n = {
+    id: Date.now(),
+    type: msgMethod === 'whatsapp' ? 'whatsapp' : 'push',
+    to: c.name || phone,
+    phone: c.phone || phone,
+    message: body,
+    date: new Date().toISOString()
+  };
   saveNotifHist([n, ...getNotifs()]);
-  toast('تم الإرسال لـ ' + c.name + ' ✓');
-  document.getElementById('q-phone').value = ''; document.getElementById('q-msg').value = '';
+  toast('تم الإرسال لـ ' + (c.name || phone) + ' ✓');
+
+  document.getElementById('q-phone').value = '';
+  document.getElementById('q-msg').value = '';
 }
 
 (async function bootstrapAdminApp(){
