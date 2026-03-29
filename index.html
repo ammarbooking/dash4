@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0A0A0F">
 <title>لوحة التحكم ✦</title>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Noto+Kufi+Arabic:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--gold:#D4AF37;--gold2:#F5E6A3;--gold3:#B8960C;--dk:#0A0A0F;--dk2:#1A1425;--dk3:#140F23;--grn:#2ECC71;--red:#E74C3C;--blue:#3498DB}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -226,11 +227,57 @@ let msgMethod = "push";
 let msgTarget = "all";
 let selectedCusts = [];
 
-// ============ STORAGE ============
+// ============ STORAGE / DATABASE ============
+const SUPABASE_URL = 'https://zmkfwwqngpnmkxkluwat.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_2Tl1LmF_xC6DxXbm_cYwCA_UrBN_W8I';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const gs = (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
 const ss = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
-const getCusts = () => gs('loyalty-customers') || {};
-const saveCusts = (d) => ss('loyalty-customers', d);
+
+let customersCache = {};
+let customersLoaded = false;
+
+function normalizeStamps(val) {
+  if (Array.isArray(val) && val.length === 5) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed) && parsed.length === 5) return parsed;
+    } catch (e) {}
+  }
+  return [false, false, false, false, false];
+}
+
+function normalizeCustomer(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    stamps: normalizeStamps(row.stamps),
+    totalRewards: Number(row.total_rewards ?? row.totalRewards ?? 0),
+    total_rewards: Number(row.total_rewards ?? row.totalRewards ?? 0),
+    referralCode: row.referral_code ?? row.referralCode ?? null,
+    referral_code: row.referral_code ?? row.referralCode ?? null,
+    history: Array.isArray(row.history) ? row.history : [],
+    createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+    created_at: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+  };
+}
+
+async function refreshCustomers() {
+  const { data, error } = await db.from('customers').select('*');
+  if (error) {
+    console.error('Supabase load error:', error);
+    toast('تعذر تحميل العملاء من قاعدة البيانات', 'error');
+    return customersCache;
+  }
+  customersCache = Object.fromEntries((data || []).map(c => [c.phone, normalizeCustomer(c)]));
+  customersLoaded = true;
+  return customersCache;
+}
+
+const getCusts = () => customersCache;
+const saveCusts = (d) => { customersCache = d || {}; customersLoaded = true; };
 const getEmps = () => gs('loyalty-employees') || {};
 const saveEmps = (d) => ss('loyalty-employees', d);
 const getNotifs = () => gs('loyalty-notif-history') || [];
@@ -325,7 +372,7 @@ function loginEmployee() {
 function logoutAdmin() { isAdmin = false; currentEmp = null; go('login'); }
 
 // ============ PANEL INIT ============
-function initPanel() {
+async function initPanel() {
   const sn = gs('loyalty-shop'); if (sn) shopName = sn;
   document.getElementById('panel-title').textContent = shopName;
 
@@ -357,14 +404,15 @@ function initPanel() {
     `<button class="tab${activeTab === t.id ? ' on' : ''}" onclick="switchTab('${t.id}')"><span class="tab-icon">${t.i}</span>${t.l}</button>`
   ).join('');
 
-  renderTab();
+  await renderTab();
 }
 
 function setBranch(b) { currentBranch = b; initPanel(); }
 function switchTab(t) { activeTab = t; initPanel(); }
 
 // ============ RENDER TABS ============
-function renderTab() {
+async function renderTab() {
+  if (!customersLoaded) await refreshCustomers();
   const tc = document.getElementById('tab-content');
   const fab = document.getElementById('fab-btn');
   fab.style.display = activeTab === 'customers' && isAdmin ? 'block' : 'none';
@@ -491,8 +539,9 @@ function renderTab() {
 }
 
 // ============ SCAN ============
-function doScan() {
+async function doScan() {
   const phone = document.getElementById('scan-input').value.trim();
+  await refreshCustomers();
   const custs = getCusts();
   if (!custs[phone]) { toast('غير موجود', 'error'); return; }
   scanResult = custs[phone];
@@ -524,12 +573,14 @@ function sendWelcomeNotif(c) {
 }
 
 // ============ STAMP / RESET ============
-function doStamp(phone) {
-  const custs = getCusts();
-  const c = custs[phone];
-  if (!c) return;
+async function doStamp(phone) {
+  const { data, error } = await db.from('customers').select('*').eq('phone', phone).limit(1).maybeSingle();
+  if (error || !data) { toast('العميل غير موجود', 'error'); return; }
+
+  const c = normalizeCustomer(data);
   const ni = c.stamps.findIndex(s => !s);
   if (ni === -1) { toast('البطاقة مكتملة!', 'error'); return; }
+
   c.stamps[ni] = true;
   const by = currentEmp ? currentEmp.name : 'المشرف';
   c.history = c.history || [];
@@ -537,41 +588,71 @@ function doStamp(phone) {
 
   if (ni === 4) {
     c.totalRewards = (c.totalRewards || 0) + 1;
+    c.total_rewards = c.totalRewards;
     c.history.push({ action: 'reward', date: new Date().toISOString(), by, branch: currentBranch });
   }
-  custs[phone] = c; saveCusts(custs);
-  toast('تم إضافة ختم لـ ' + c.name + ' ✓');
 
-  // WhatsApp bot auto-send
+  const { error: updateError } = await db.from('customers').update({
+    stamps: c.stamps,
+    history: c.history,
+    total_rewards: c.totalRewards,
+    branch: c.branch || currentBranch || 'riyadh'
+  }).eq('phone', phone);
+  if (updateError) { toast('فشل تحديث الختم', 'error'); return; }
+
+  await refreshCustomers();
+  const custs = getCusts();
+  const updated = custs[phone] || c;
+  toast('تم إضافة ختم لـ ' + updated.name + ' ✓');
+
   let msg;
-  if (ni < 4) msg = '✦ مرحباً ' + c.name + '!\nتم إضافة ختم ' + (ni + 1) + '/٥ 🎉\nباقي ' + (4 - ni) + ' للهدية! 🎁\n' + shopName;
-  else msg = '🎉 مبروك ' + c.name + '!\nأكملت ٥ أختام!\nطلبك المجاني بانتظارك 🎁\n✦ ' + shopName;
+  if (ni < 4) msg = '✦ مرحباً ' + updated.name + '!\nتم إضافة ختم ' + (ni + 1) + '/٥ 🎉\nباقي ' + (4 - ni) + ' للهدية! 🎁\n' + shopName;
+  else msg = '🎉 مبروك ' + updated.name + '!\nأكملت ٥ أختام!\nطلبك المجاني بانتظارك 🎁\n✦ ' + shopName;
   sendWA(phone, msg);
   sendPushNotif(ni < 4 ? '✦ ختم جديد!' : '🎉 مبروك!', ni < 4 ? 'ختم ' + (ni + 1) + '/٥' : 'هديتك جاهزة! 🎁');
 
-  // Log
-  const n = { id: Date.now(), type: ni === 4 ? 'reward' : 'stamp', to: c.name, phone, message: msg, date: new Date().toISOString() };
+  const n = { id: Date.now(), type: ni === 4 ? 'reward' : 'stamp', to: updated.name, phone, message: msg, date: new Date().toISOString() };
   saveNotifHist([n, ...getNotifs()]);
 
   if (ni === 4) {
-    document.getElementById('reward-name').textContent = c.name + ' حصل على الطلب المجاني!';
+    document.getElementById('reward-name').textContent = updated.name + ' حصل على الطلب المجاني!';
     document.getElementById('reward-modal').classList.add('active');
-    // Auto reset
-    setTimeout(() => {
-      const cc = getCusts(); cc[phone].stamps = [false, false, false, false, false];
-      cc[phone].history.push({ action: 'auto-reset', date: new Date().toISOString() });
-      saveCusts(cc); scanResult = cc[phone]; renderScanResult(); renderTab();
+    setTimeout(async () => {
+      const latest = getCusts()[phone];
+      if (!latest) return;
+      const resetHistory = [...(latest.history || []), { action: 'auto-reset', date: new Date().toISOString() }];
+      await db.from('customers').update({
+        stamps: [false, false, false, false, false],
+        history: resetHistory
+      }).eq('phone', phone);
+      await refreshCustomers();
+      scanResult = getCusts()[phone];
+      renderScanResult();
+      renderTab();
     }, 2000);
   }
-  scanResult = custs[phone]; renderScanResult(); renderTab();
+
+  scanResult = updated;
+  renderScanResult();
+  renderTab();
 }
 
-function doReset(phone) {
-  const custs = getCusts(); const c = custs[phone]; if (!c) return;
-  c.stamps = [false, false, false, false, false];
-  c.history.push({ action: 'reset', date: new Date().toISOString() });
-  custs[phone] = c; saveCusts(custs);
-  scanResult = c; renderScanResult(); renderTab(); toast('تم إعادة التعيين');
+async function doReset(phone) {
+  const current = getCusts()[phone];
+  if (!current) { await refreshCustomers(); }
+  const c = getCusts()[phone];
+  if (!c) return;
+  const history = [...(c.history || []), { action: 'reset', date: new Date().toISOString() }];
+  const { error } = await db.from('customers').update({
+    stamps: [false, false, false, false, false],
+    history
+  }).eq('phone', phone);
+  if (error) { toast('فشل إعادة التعيين', 'error'); return; }
+  await refreshCustomers();
+  scanResult = getCusts()[phone];
+  renderScanResult();
+  renderTab();
+  toast('تم إعادة التعيين');
 }
 
 function closeReward() { document.getElementById('reward-modal').classList.remove('active'); }
@@ -587,17 +668,21 @@ function goAddCustomer() {
   go('add');
 }
 
-function addCustomer() {
+async function addCustomer() {
   const name = document.getElementById('add-name').value.trim();
   const phone = document.getElementById('add-phone').value.trim();
   const bd = document.getElementById('add-birthday').value;
   const branchEl = document.querySelector('#add-branch-chips .branch-chip[style*="background"]');
   const branch = branchEl ? branchEl.dataset.branch : currentBranch;
   if (!name || !phone) { toast('أدخل البيانات', 'error'); return; }
+  await refreshCustomers();
   const custs = getCusts();
   if (custs[phone]) { toast('الرقم مسجل', 'error'); return; }
-  custs[phone] = { name, phone, birthday: bd || null, stamps: [false, false, false, false, false], totalRewards: 0, createdAt: new Date().toISOString(), history: [], referralCode: phone.slice(-4) + Math.random().toString(36).slice(2, 5).toUpperCase(), branch };
-  saveCusts(custs); toast('تم إضافة ' + name + ' ✓'); go('panel'); renderTab();
+  const payload = { name, phone, birthday: bd || null, stamps: [false, false, false, false, false], total_rewards: 0, history: [], referral_code: phone.slice(-4) + Math.random().toString(36).slice(2, 5).toUpperCase(), branch, created_at: new Date().toISOString() };
+  const { error } = await db.from('customers').insert([payload]);
+  if (error) { toast('فشل الإضافة: ' + error.message, 'error'); return; }
+  await refreshCustomers();
+  toast('تم إضافة ' + name + ' ✓'); go('panel'); renderTab();
 }
 
 // ============ EMPLOYEES ============
@@ -700,7 +785,7 @@ function sendBulkMsg() {
   closeMsgModal(); renderTab();
 }
 
-function quickSend() {
+async function quickSend() {
   const phone = document.getElementById('q-phone').value.trim();
   const msg = document.getElementById('q-msg').value.trim();
   const custs = getCusts();
@@ -715,6 +800,19 @@ function quickSend() {
   toast('تم الإرسال لـ ' + c.name + ' ✓');
   document.getElementById('q-phone').value = ''; document.getElementById('q-msg').value = '';
 }
+
+(async function bootstrapAdminApp(){
+  try {
+    await refreshCustomers();
+  } catch (e) {
+    console.error(e);
+  }
+
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { Notification.requestPermission(); } catch (e) {}
+  }
+})();
+
 </script>
 </body>
 </html>
